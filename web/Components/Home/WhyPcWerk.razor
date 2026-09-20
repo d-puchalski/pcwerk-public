@@ -1,0 +1,39 @@
+<section class="section-pad why-section" id="support" aria-labelledby="why-title">
+    <div class="container-fluid site-container">
+        <div class="section-heading">
+            <span class="eyebrow">// @L("WhyPcWerk.WhyPcWerk")</span>
+            <h2 class="section-title" id="why-title">@L("WhyPcWerk.MoreThanParts") <span>@L("WhyPcWerk.ACompleteBuild")</span></h2>
+        </div>
+
+        <div class="row g-3 feature-grid">
+            @foreach (var feature in Features)
+            {
+                <div class="col-sm-6 col-xl-3">
+                    <article class="feature-card">
+                        <span aria-hidden="true">@feature.Number</span>
+                        <h3>@L(feature.Title)</h3>
+                        <p>@L(feature.Copy)</p>
+                    </article>
+                </div>
+            }
+        </div>
+
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    private static readonly Feature[] Features =
+    [
+        new("01", "WhyPcWerk.CompatibilityChecked", "WhyPcWerk.EveryComponentIsSelectedToWorkTogether"),
+        new("02", "WhyPcWerk.ProfessionalAssembly", "WhyPcWerk.CleanAssemblyAndCableManagement"),
+        new("03", "WhyPcWerk.StressTested", "WhyPcWerk.TheCompletedSystemIsTestedBeforeDelivery"),
+        new("04", "WhyPcWerk.PersonalSupport", "WhyPcWerk.OnePointOfContactForTheCompletePc"),
+    ];
+
+    private string L(string key) => Translations.Translate(Language, key);
+
+    private sealed record Feature(string Number, string Title, string Copy);
+}

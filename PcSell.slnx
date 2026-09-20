@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/common/">
+    <Project Path="common/EFDB/EFDB.csproj" />
+    <Project Path="common/services/Services.csproj" />
+    <Project Path="common/services.Tests/Services.Tests.csproj" />
+  </Folder>
+  <Folder Name="/db/">
+    <File Path="db/create.sql" />
+    <File Path="db/upgrade_integrated_graphics.sql" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Toppreise.Catalog.Import/Toppreise.Catalog.Import.csproj" />
+    <Project Path="tools/Toppreise.Catalog.Import.Tests/Toppreise.Catalog.Import.Tests.csproj" />
+  </Folder>
+  <Project Path="web/PcSell.csproj" />
+</Solution>

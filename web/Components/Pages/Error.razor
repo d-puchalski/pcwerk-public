@@ -1,0 +1,53 @@
+@page "/Error"
+@using System.Diagnostics
+@inject IJSRuntime JS
+
+<PageTitle>@L("Error.PageTitle")</PageTitle>
+
+<h1 class="text-danger">@L("Error.Heading")</h1>
+<h2 class="text-danger">@L("Error.Message")</h2>
+
+@if (ShowRequestId)
+{
+    <p>
+        <strong>@L("Error.RequestId"):</strong> <code>@RequestId</code>
+    </p>
+}
+
+<h3>@L("Error.DevelopmentMode")</h3>
+<p>
+    @L("Error.DevelopmentModeDetails")
+</p>
+<p>
+    <strong>@L("Error.DevelopmentModeWarning")</strong>
+    @L("Error.LocalDebuggingInstructions") <strong>ASPNETCORE_ENVIRONMENT</strong> = <strong>Development</strong>.
+</p>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+    private string _language = "DE";
+
+    private string L(string key) => Translations.Translate(_language, key);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var language = Translations.NormalizeLanguage(await JS.InvokeAsync<string?>("pcLanguage.get"));
+        if (language != _language)
+        {
+            _language = language;
+            StateHasChanged();
+        }
+    }
+}

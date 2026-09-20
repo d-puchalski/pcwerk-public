@@ -1,0 +1,6 @@
+<span class="localized-text localized-text-de">@Translations.Translate("DE", Key)</span><span class="localized-text localized-text-en">@Translations.Translate("EN", Key)</span><span class="localized-text localized-text-it">@Translations.Translate("IT", Key)</span><span class="localized-text localized-text-fr">@Translations.Translate("FR", Key)</span><span class="localized-text localized-text-pl">@Translations.Translate("PL", Key)</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Key { get; set; } = string.Empty;
+}

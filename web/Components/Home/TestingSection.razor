@@ -1,0 +1,43 @@
+<section class="section-pad testing-section" aria-labelledby="testing-title">
+    <div class="container-fluid site-container">
+        <div class="testing-panel row g-0">
+            <div class="col-lg-5 testing-intro">
+                <span class="eyebrow">// @L("TestingSection.PcWerkQualityAssurance")</span>
+                <h2 class="section-title" id="testing-title">@L("TestingSection.BuiltConfigured") <span>@L("TestingSection.Tested")</span></h2>
+                <p>@L("TestingSection.BeforeYourPcLeavesZurichWeCheckTheCompleteSystemNotJustIndividualParts")</p>
+            </div>
+
+            <div class="col-lg-7 testing-list">
+                <ul class="list-unstyled">
+                    @for (var index = 0; index < Tests.Length; index++)
+                    {
+                        <li>
+                            <span>@((index + 1).ToString("00"))</span>
+                            @L(Tests[index])
+                            <b aria-hidden="true">✓</b>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    private static readonly string[] Tests =
+    [
+        "TestingSection.BiosFirmwareCheck",
+        "TestingSection.MemoryProfileSetup",
+        "TestingSection.DriversInstalled",
+        "TestingSection.CpuStressTest",
+        "TestingSection.GpuStressTest",
+        "TestingSection.TemperatureCheck",
+        "TestingSection.StabilityCheck",
+        "TestingSection.FinalHardwareInspection",
+    ];
+
+    private string L(string key) => Translations.Translate(Language, key);
+}

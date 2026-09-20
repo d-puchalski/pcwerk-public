@@ -1,0 +1,45 @@
+#components-reconnect-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(238, 234, 241, 0.42);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    cursor: wait;
+}
+
+#components-reconnect-modal.components-reconnect-show,
+#components-reconnect-modal.components-reconnect-retrying,
+#components-reconnect-modal.components-reconnect-failed,
+#components-reconnect-modal.components-reconnect-paused,
+#components-reconnect-modal.components-reconnect-resume-failed {
+    display: flex;
+    animation: reconnect-overlay-fade-in 160ms ease-out both;
+}
+
+.reconnect-spinner {
+    width: 3.5rem;
+    height: 3.5rem;
+    border: 0.3rem solid rgba(49, 39, 62, 0.18);
+    border-top-color: #31273e;
+    border-radius: 50%;
+    animation: reconnect-spinner-rotate 750ms linear infinite;
+}
+
+@keyframes reconnect-overlay-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes reconnect-spinner-rotate {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .reconnect-spinner {
+        animation-duration: 1.5s;
+    }
+}

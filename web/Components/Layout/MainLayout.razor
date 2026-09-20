@@ -1,0 +1,20 @@
+@inherits LayoutComponentBase
+@inject PcSell.Infrastructure.CartBrowserPersistence CartPersistence
+
+@Body
+
+<div id="blazor-error-ui" data-nosnippet>
+    <LocalizedText Key="Layout.UnhandledError" />
+    <a href="." class="reload"><LocalizedText Key="Layout.Reload" /></a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CartPersistence.InitializeAsync();
+        }
+    }
+}

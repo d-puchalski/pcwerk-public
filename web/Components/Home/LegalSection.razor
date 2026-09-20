@@ -1,0 +1,9 @@
+<section class="legal-section">
+    <h3>@Title</h3>
+    <p>@Text</p>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Text { get; set; } = string.Empty;
+}

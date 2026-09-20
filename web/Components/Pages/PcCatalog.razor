@@ -1,0 +1,340 @@
+@page "/pcs"
+@using Services.Catalog
+@inject PcPresetCatalogService PresetCatalog
+@inject IJSRuntime JS
+@inject ILogger<PcCatalog> Logger
+@inject NavigationManager Navigation
+
+<PageTitle>@L("PcCatalog.PageTitle")</PageTitle>
+<HeadContent>
+    <meta name="description" content="@(L("PcCatalog.Intro"))" />
+    <meta property="og:title" content="@(L("PcCatalog.PageTitle"))" />
+    <meta property="og:description" content="@(L("PcCatalog.Intro"))" />
+</HeadContent>
+
+<div class="page-shell theme-purple" lang="@_language.ToLowerInvariant()">
+    <SiteHeader Language="@_language" LanguageChanged="SetLanguage" />
+
+    <main class="pc-catalog-page" id="top">
+        <div class="container-fluid site-container">
+            <header class="catalog-heading">
+                <span class="eyebrow">// @L("PcCatalog.PcWerkPresets")</span>
+                <h2 class="section-title">@L("PcCatalog.Heading")</h2>
+                <p>@L("PcCatalog.Intro")</p>
+            </header>
+
+            @if (_isLoading)
+            {
+                <div class="pcwerk-loader" role="status" aria-label="@L("PcShowcase.LoadingPresets")">
+                    <span class="pcwerk-spinner" aria-hidden="true"></span>
+                </div>
+            }
+            else if (_presets.Count == 0)
+            {
+                <div class="catalog-state" role="status">
+                    <strong>@L("PcShowcase.NoAvailablePresets")</strong>
+                    <span>@L("PcShowcase.PresetAvailabilityHint")</span>
+                </div>
+            }
+            else
+            {
+                <section class="catalog-tools" aria-label="@(L("PcCatalog.Filters"))">
+                    <div class="catalog-tools-primary">
+                        <label>
+                            <span>@L("PcCatalog.Search")</span>
+                            <input class="form-control" type="search" @bind="_search" @bind:event="oninput" placeholder="@(L("PcCatalog.SearchPlaceholder"))" />
+                        </label>
+                        <label>
+                            <span>@L("PcCatalog.Sort")</span>
+                            <select class="form-select" @bind="_sort">
+                                <option value="price-asc">@L("PcCatalog.SortPriceAscending")</option>
+                                <option value="price-desc">@L("PcCatalog.SortPriceDescending")</option>
+                                <option value="recommended">@L("PcCatalog.SortRecommended")</option>
+                                <option value="name">@L("PcCatalog.SortName")</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <details class="card catalog-filter-card">
+                        <summary class="card-header">
+                            <span class="filter-card-heading">
+                                <strong>@L("PcCatalog.ComponentFilters")</strong>
+                                <small>@L("PcCatalog.FilterHint")</small>
+                            </span>
+                            @if (ActiveFilterCount > 0)
+                            {
+                                <span class="filter-card-count">@ActiveFilterCount</span>
+                            }
+                        </summary>
+
+                        <div class="card-body">
+                            @if (ActiveFilterCount > 0)
+                            {
+                                <div class="filter-card-actions">
+                                    <button class="btn clear-filters" type="button" @onclick="ClearFilters">
+                                        @L("PcCatalog.ClearFilters") <span aria-hidden="true">(@ActiveFilterCount)</span>
+                                    </button>
+                                </div>
+                            }
+
+                            <div class="catalog-filter-grid">
+                                @foreach (var group in _filterGroups)
+                                {
+                                    <details class="component-filter" @key="group.Code">
+                                        <summary>
+                                            <span>@group.Label</span>
+                                            <span class="filter-count">@SelectedCount(group.Code) / @group.Options.Count</span>
+                                        </summary>
+                                        <div class="component-options">
+                                            @foreach (var option in group.Options)
+                                            {
+                                                var inputId = $"filter-{group.Code.ToLowerInvariant()}-{option.ProductId}";
+                                                <label for="@inputId">
+                                                    <input id="@inputId"
+                                                           class="form-check-input"
+                                                           type="checkbox"
+                                                           checked="@IsSelected(group.Code, option.ProductId)"
+                                                           @onchange="args => SetComponentFilter(group.Code, option.ProductId, args.Value is true)" />
+                                                    <span title="@option.Label">@option.Label</span>
+                                                    <small>@option.PresetCount</small>
+                                                </label>
+                                            }
+                                        </div>
+                                    </details>
+                                }
+                            </div>
+                        </div>
+                    </details>
+                </section>
+
+                <div class="catalog-results" aria-live="polite">
+                    <span>@VisiblePresets.Count @L("PcCatalog.Results")</span>
+                </div>
+
+                @if (VisiblePresets.Count == 0)
+                {
+                    <div class="catalog-state" role="status">@L("PcCatalog.NoSearchResults")</div>
+                }
+                else
+                {
+                    <section class="preset-list" aria-label="@(L("PcCatalog.Heading"))">
+                        @foreach (var preset in VisiblePresets)
+                        {
+                            <PcPresetCatalogCard Preset="preset" Language="@_language" OnSelected="SelectPreset" @key="preset.PresetId" />
+                        }
+                    </section>
+                }
+            }
+
+        </div>
+    </main>
+
+    <SiteFooter Language="@_language" />
+</div>
+
+@code {
+    private IReadOnlyList<CatalogPcPreset> _presets = [];
+    private IReadOnlyList<CatalogFilterGroup> _filterGroups = [];
+    private readonly Dictionary<string, HashSet<long>> _selectedProducts = new(StringComparer.OrdinalIgnoreCase);
+    private string _language = "DE";
+    private string _search = string.Empty;
+    private string _sort = "price-asc";
+    private bool _isLoading = true;
+    private const long IntegratedGraphicsFilterId = 0;
+
+    private int ActiveFilterCount =>
+        (string.IsNullOrWhiteSpace(_search) ? 0 : 1)
+        + _selectedProducts.Values.Sum(x => x.Count);
+
+    private IReadOnlyList<CatalogPcPreset> VisiblePresets
+    {
+        get
+        {
+            IEnumerable<CatalogPcPreset> result = _presets;
+            if (!string.IsNullOrWhiteSpace(_search))
+            {
+                result = result.Where(x => x.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                    || x.Components.Any(component => component.ProductName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                        || component.CategoryName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                        || (component.Manufacturer?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)
+                        || (component.ManufacturerPartNumber?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false))
+                    || x.Specifications.Any(specification =>
+                        specification.Label.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                        || specification.Value.Contains(_search, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            foreach (var (categoryCode, selectedProductIds) in _selectedProducts.Where(x => x.Value.Count > 0))
+            {
+                result = result.Where(preset =>
+                    (categoryCode.Equals("GPU", StringComparison.OrdinalIgnoreCase)
+                        && selectedProductIds.Contains(IntegratedGraphicsFilterId)
+                        && preset.Components.All(component => !component.CategoryCode.Equals("GPU", StringComparison.OrdinalIgnoreCase)))
+                    || preset.Components.Any(component =>
+                        component.CategoryCode.Equals(categoryCode, StringComparison.OrdinalIgnoreCase)
+                        && selectedProductIds.Contains(component.ProductId)));
+            }
+
+            result = _sort switch
+            {
+                "price-desc" => result.OrderByDescending(x => x.Price).ThenBy(x => x.Name),
+                "name" => result.OrderBy(x => x.Name),
+                "recommended" => result,
+                _ => result.OrderBy(x => x.Price).ThenBy(x => x.Name)
+            };
+            return result.ToArray();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _presets = await PresetCatalog.GetAvailablePresetsAsync();
+            _filterGroups = BuildFilterGroups(_presets);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Nie udało się wczytać listy presetów PC.");
+            _presets = [];
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var storedLanguage = await JS.InvokeAsync<string?>("pcLanguage.get");
+        var language = Translations.NormalizeLanguage(storedLanguage);
+        if (language != _language)
+        {
+            _language = language;
+            _filterGroups = BuildFilterGroups(_presets);
+            StateHasChanged();
+        }
+    }
+
+    private string L(string key) => Translations.Translate(_language, key);
+
+    private IReadOnlyList<CatalogFilterGroup> BuildFilterGroups(IReadOnlyList<CatalogPcPreset> presets)
+    {
+        var groups = presets
+            .SelectMany(x => x.Components)
+            .GroupBy(x => x.CategoryCode, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new CatalogFilterGroup(
+                group.Key,
+                CategoryLabel(group.Key),
+                group.GroupBy(x => x.ProductId)
+                    .Select(products => new CatalogFilterOption(
+                        products.Key,
+                        products.First().ProductName,
+                        presets.Count(preset => preset.Components.Any(component => component.ProductId == products.Key))))
+                    .OrderBy(x => x.Label)
+                    .ToArray()))
+            .ToList();
+
+        var integratedGraphicsCount = presets.Count(preset =>
+            preset.Components.All(component => !component.CategoryCode.Equals("GPU", StringComparison.OrdinalIgnoreCase)));
+        if (integratedGraphicsCount > 0)
+        {
+            var gpuGroupIndex = groups.FindIndex(group => group.Code.Equals("GPU", StringComparison.OrdinalIgnoreCase));
+            var integratedGraphics = new CatalogFilterOption(
+                IntegratedGraphicsFilterId,
+                L("ConfiguratorPreview.IntegratedGraphics"),
+                integratedGraphicsCount);
+            if (gpuGroupIndex >= 0)
+            {
+                var gpuGroup = groups[gpuGroupIndex];
+                groups[gpuGroupIndex] = gpuGroup with { Options = [integratedGraphics, .. gpuGroup.Options] };
+            }
+            else
+            {
+                groups.Add(new CatalogFilterGroup("GPU", CategoryLabel("GPU"), [integratedGraphics]));
+            }
+        }
+
+        return groups
+            .OrderBy(x => CategoryOrder(x.Code))
+            .ThenBy(x => x.Label)
+            .ToArray();
+    }
+
+    private string CategoryLabel(string code) => code.ToUpperInvariant() switch
+    {
+        "CPU" => L("ConfiguratorPreview.Processor"),
+        "GPU" => L("ConfiguratorPreview.GraphicsCard"),
+        "MOTHERBOARD" => L("ConfiguratorPreview.Motherboard"),
+        "RAM" => L("ConfiguratorPreview.Memory"),
+        "STORAGE" => L("ConfiguratorPreview.Storage"),
+        "COOLING" => L("ConfiguratorPreview.CpuCooling"),
+        "PSU" => L("ConfiguratorPreview.PowerSupply"),
+        "CASE" => L("ConfiguratorPreview.Case"),
+        "MONITOR" => L("ConfiguratorPreview.Monitor"),
+        "MOUSE" => L("ConfiguratorPreview.Mouse"),
+        "KEYBOARD" => L("ConfiguratorPreview.Keyboard"),
+        _ => code
+    };
+
+    private static int CategoryOrder(string code) => code.ToUpperInvariant() switch
+    {
+        "CPU" => 10,
+        "GPU" => 20,
+        "MOTHERBOARD" => 30,
+        "RAM" => 40,
+        "STORAGE" => 50,
+        "COOLING" => 60,
+        "PSU" => 70,
+        "CASE" => 80,
+        _ => 100
+    };
+
+    private int SelectedCount(string categoryCode) =>
+        _selectedProducts.TryGetValue(categoryCode, out var selected) ? selected.Count : 0;
+
+    private bool IsSelected(string categoryCode, long productId) =>
+        _selectedProducts.TryGetValue(categoryCode, out var selected) && selected.Contains(productId);
+
+    private void SetComponentFilter(string categoryCode, long productId, bool isSelected)
+    {
+        if (!_selectedProducts.TryGetValue(categoryCode, out var selected))
+        {
+            selected = [];
+            _selectedProducts[categoryCode] = selected;
+        }
+
+        if (isSelected)
+        {
+            selected.Add(productId);
+        }
+        else
+        {
+            selected.Remove(productId);
+        }
+    }
+
+    private void ClearFilters()
+    {
+        _search = string.Empty;
+        _selectedProducts.Clear();
+    }
+
+    private async Task SetLanguage(string language)
+    {
+        _language = Translations.NormalizeLanguage(language);
+        _filterGroups = BuildFilterGroups(_presets);
+        await JS.InvokeVoidAsync("pcLanguage.set", _language);
+    }
+
+    private void SelectPreset(CatalogPcPreset preset) =>
+        Navigation.NavigateTo($"/?preset={preset.PresetId}&configurator=true");
+
+    private sealed record CatalogFilterGroup(string Code, string Label, IReadOnlyList<CatalogFilterOption> Options);
+
+    private sealed record CatalogFilterOption(long ProductId, string Label, int PresetCount);
+}

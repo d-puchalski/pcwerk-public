@@ -1,0 +1,40 @@
+<section class="section-pad workshop-section" id="about" aria-labelledby="workshop-title">
+    <div class="container-fluid site-container">
+        <div class="workshop-panel row g-0 align-items-stretch">
+            <div class="col-lg-6 workshop-image">
+                @* TODO: Replace this concept placeholder with a verified photo from the PCWerk workshop. *@
+                <img src="/images/workshop/pcwerk-build.webp"
+                     width="1448"
+                     height="1086"
+                     loading="lazy"
+                     alt="@(L("LocalWorkshop.PcAssemblyAtThePcWerkWorkshopInZurich"))" />
+                <span>@L("LocalWorkshop.PcWerkZurich")</span>
+            </div>
+
+            <div class="col-lg-6 workshop-copy">
+                <span class="eyebrow">// @L("LocalWorkshop.BuiltLocally")</span>
+                <h2 class="section-title" id="workshop-title">@L("LocalWorkshop.BuiltIn") <span>@L("LocalWorkshop.Zurich")</span></h2>
+                <p>@L("LocalWorkshop.EveryPcIsIndividuallyAssembledConfiguredAndTestedBeforeDelivery")</p>
+                <ul class="workshop-points list-unstyled">
+                    <li><span>01</span>@L("LocalWorkshop.AssembledLocally")</li>
+                    <li><span>02</span>@L("LocalWorkshop.IndividuallyTested")</li>
+                    <li><span>03</span>@L("LocalWorkshop.PersonalSupport")</li>
+                    <li><span>04</span>@L("LocalWorkshop.DeliveryAcrossSwitzerland")</li>
+                </ul>
+                <button class="btn primary-button" type="button" @onclick="OnConfiguratorRequested">
+                    @L("LocalWorkshop.BuildYourPc") <span aria-hidden="true">→</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    [Parameter]
+    public EventCallback OnConfiguratorRequested { get; set; }
+
+    private string L(string key) => Translations.Translate(Language, key);
+}

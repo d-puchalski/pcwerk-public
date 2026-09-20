@@ -1,0 +1,41 @@
+<section class="section-pad process-section" id="how-it-works" aria-labelledby="process-title">
+    <div class="container-fluid site-container">
+        <div class="section-heading text-center">
+            <span class="eyebrow">// @L("HowItWorks.ThreeClearSteps")</span>
+            <h2 class="section-title" id="process-title">
+                @L("HowItWorks.FromChoice") <span>@L("HowItWorks.ToPowerOn")</span>
+            </h2>
+        </div>
+
+        <div class="row g-4 process-row">
+            <div class="col-md-4">
+                <article class="process-card">
+                    <span>01</span>
+                    <h3>@L("HowItWorks.YouConfigure")</h3>
+                    <p>@L("HowItWorks.ChooseAReadyMadePcOrBuildYourOwnConfiguration")</p>
+                </article>
+            </div>
+            <div class="col-md-4">
+                <article class="process-card">
+                    <span>02</span>
+                    <h3>@L("HowItWorks.WeBuild")</h3>
+                    <p>@L("HowItWorks.WeAssembleConfigureAndTestYourSystemInZurich")</p>
+                </article>
+            </div>
+            <div class="col-md-4">
+                <article class="process-card">
+                    <span>03</span>
+                    <h3>@L("HowItWorks.YouPowerOn")</h3>
+                    <p>@L("HowItWorks.ReceiveAFinishedPcAndStartUsingIt")</p>
+                </article>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    private string L(string key) => Translations.Translate(Language, key);
+}

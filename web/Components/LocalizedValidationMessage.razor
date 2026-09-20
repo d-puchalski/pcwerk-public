@@ -1,0 +1,52 @@
+@typeparam TValue
+@implements IDisposable
+@using System.Linq.Expressions
+
+@foreach (var message in Messages)
+{
+    <div class="validation-message">@Translations.Translate(Language, message)</div>
+}
+
+@code {
+    [CascadingParameter]
+    private EditContext CurrentEditContext { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public Expression<Func<TValue>> For { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    private EditContext? _subscribedEditContext;
+    private FieldIdentifier _fieldIdentifier;
+
+    private IEnumerable<string> Messages =>
+        CurrentEditContext.GetValidationMessages(_fieldIdentifier);
+
+    protected override void OnParametersSet()
+    {
+        if (_subscribedEditContext != CurrentEditContext)
+        {
+            if (_subscribedEditContext is not null)
+            {
+                _subscribedEditContext.OnValidationStateChanged -= ValidationStateChanged;
+            }
+
+            _subscribedEditContext = CurrentEditContext;
+            _subscribedEditContext.OnValidationStateChanged += ValidationStateChanged;
+        }
+
+        _fieldIdentifier = FieldIdentifier.Create(For);
+    }
+
+    private void ValidationStateChanged(object? sender, ValidationStateChangedEventArgs args) =>
+        _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        if (_subscribedEditContext is not null)
+        {
+            _subscribedEditContext.OnValidationStateChanged -= ValidationStateChanged;
+        }
+    }
+}

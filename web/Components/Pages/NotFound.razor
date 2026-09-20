@@ -1,0 +1,29 @@
+@page "/not-found"
+@layout MainLayout
+@inject IJSRuntime JS
+
+<PageTitle>@L("NotFound.PageTitle")</PageTitle>
+
+<h3>@L("NotFound.Heading")</h3>
+<p>@L("NotFound.Message")</p>
+
+@code {
+    private string _language = "DE";
+
+    private string L(string key) => Translations.Translate(_language, key);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var language = Translations.NormalizeLanguage(await JS.InvokeAsync<string?>("pcLanguage.get"));
+        if (language != _language)
+        {
+            _language = language;
+            StateHasChanged();
+        }
+    }
+}

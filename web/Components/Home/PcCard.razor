@@ -1,0 +1,124 @@
+<article class="pc-card">
+    <div class="row g-0 align-items-stretch">
+        <div class="col-lg-5 pc-card-visual">
+            <span class="pc-index">@Index.ToString("00") / @Total.ToString("00")</span>
+            <span class="purpose-badge">@Badge</span>
+            <img src="@Build.ImageUrl"
+                 width="1254"
+                 height="1254"
+                 loading="lazy"
+                 alt="@Build.Name" />
+        </div>
+
+        <div class="col-lg-7 pc-card-content">
+            <div class="product-code">
+                <span>@L("PcCard.PcWerkPreset")</span>
+                <span>@Build.Components.Sum(x => x.Quantity) @L("PcCard.Components")</span>
+            </div>
+            <h3>@Build.Name</h3>
+            <p class="product-summary">
+                @Description
+            </p>
+
+            <div class="pc-details-grid">
+                <dl class="spec-list">
+                    @foreach (var specification in Build.Specifications)
+                    {
+                        <div><dt>@SpecificationLabel(specification.Label)</dt><dd>@specification.Value</dd></div>
+                    }
+                </dl>
+
+                <div class="ideal-for">
+                    <small>@L("PcCard.IncludedProducts")</small>
+                    <ul class="list-unstyled">
+                        @foreach (var component in Build.Components.Take(3))
+                        {
+                            <li>@CategoryLabel(component.CategoryCode): @component.ProductName</li>
+                        }
+                    </ul>
+                </div>
+            </div>
+
+            <ul class="utility-tags list-unstyled">
+                <li>✓ @L("PcCard.OnlyAvailableProducts")</li>
+                <li>✓ @Build.Components.Select(x => x.Retailer).Distinct(StringComparer.OrdinalIgnoreCase).Count() @L("PcCard.PartnerStores")</li>
+                <li>✓ @L("PcCard.CurrentOffers")</li>
+            </ul>
+
+            <div class="pc-card-footer">
+                <div class="price">
+                    <small>@L("PcCard.HardwareTotal")</small>
+                    <strong>@FormatPrice(Build.Price)</strong>
+                </div>
+                <div class="pc-card-actions">
+                    <button class="btn primary-button"
+                            type="button"
+                            @onclick="() => OnSelected.InvokeAsync(Build)">
+                        @L("PcCard.Customize") <span aria-hidden="true">→</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public CatalogPcPreset Build { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    [Parameter]
+    public int Index { get; set; }
+
+    [Parameter]
+    public int Total { get; set; }
+
+    [Parameter]
+    public EventCallback<CatalogPcPreset> OnSelected { get; set; }
+
+    private string L(string key) => Translations.Translate(Language, key);
+
+    private string Description => Language switch
+    {
+        "EN" => Build.DescriptionEn,
+        "IT" => Build.DescriptionIt,
+        _ => Build.DescriptionDe,
+    };
+
+    private string Badge => Language switch
+    {
+        "EN" => Build.BadgeEn ?? L("PcCard.Preset"),
+        "IT" => Build.BadgeIt ?? L("PcCard.Preset"),
+        _ => Build.BadgeDe ?? L("PcCard.Preset"),
+    };
+
+    private string SpecificationLabel(string label) => label == "Storage"
+        ? L("ConfiguratorPreview.Storage")
+        : label;
+
+    private string CategoryLabel(string code) => code switch
+    {
+        "CPU" => L("ConfiguratorPreview.Processor"),
+        "GPU" => L("ConfiguratorPreview.GraphicsCard"),
+        "MOTHERBOARD" => L("ConfiguratorPreview.Motherboard"),
+        "RAM" => L("ConfiguratorPreview.Memory"),
+        "STORAGE" => L("ConfiguratorPreview.Storage"),
+        "COOLING" => L("ConfiguratorPreview.CpuCooling"),
+        "PSU" => L("ConfiguratorPreview.PowerSupply"),
+        "CASE" => L("ConfiguratorPreview.Case"),
+        "MONITOR" => L("ConfiguratorPreview.Monitor"),
+        "MOUSE" => L("ConfiguratorPreview.Mouse"),
+        "KEYBOARD" => L("ConfiguratorPreview.Keyboard"),
+        _ => code
+    };
+
+    private static string FormatPrice(decimal price)
+    {
+        var value = decimal.Truncate(price)
+            .ToString("#,0", System.Globalization.CultureInfo.InvariantCulture)
+            .Replace(",", "'");
+        return $"CHF {value}.–";
+    }
+}

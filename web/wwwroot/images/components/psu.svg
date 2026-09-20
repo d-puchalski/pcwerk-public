@@ -1,0 +1,3 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 140" role="img" aria-label="Power supply placeholder">
+  <rect width="160" height="140" fill="#e7e1ea"/><g fill="none" stroke="#332f36" stroke-width="3"><path d="M30 24h101v94H30z" fill="#d8cedd"/><circle cx="77" cy="71" r="35"/><circle cx="77" cy="71" r="8" fill="#81748b"/><path d="M77 36v27m0 16v27M42 71h27m16 0h27M52 46l19 19m12 12 19 19M52 96l19-19m12-12 19-19M117 102h8v9h-8z"/></g><text x="119" y="94" fill="#5d5067" font-family="Arial" font-size="8" font-weight="700" text-anchor="middle">850W</text>
+</svg>

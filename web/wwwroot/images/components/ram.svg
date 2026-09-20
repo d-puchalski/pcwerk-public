@@ -1,0 +1,3 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 140" role="img" aria-label="Memory placeholder">
+  <rect width="160" height="140" fill="#e7e1ea"/><g fill="none" stroke="#332f36" stroke-width="3"><path d="M20 45h120v31H20z" fill="#81748b"/><path d="M20 82h120v31H20z" fill="#d8cedd"/><path d="M31 52h17v17H31zm25 0h17v17H56zm25 0h17v17H81zm25 0h17v17h-17zM31 89h17v17H31zm25 0h17v17H56zm25 0h17v17H81zm25 0h17v17h-17zM31 76v7m15-7v7m15-7v7m15-7v7m15-7v7m15-7v7m15-7v7"/></g><text x="80" y="35" fill="#5d5067" font-family="Arial" font-size="9" font-weight="700" text-anchor="middle">DDR5 MEMORY</text>
+</svg>

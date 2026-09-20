@@ -1,0 +1,286 @@
+@page "/cart"
+@implements IDisposable
+@inject CartService CartService
+@inject OrderService OrderService
+@inject IJSRuntime JS
+@inject ILogger<Cart> Logger
+
+<PageTitle>@L("Cart.PageTitle")</PageTitle>
+<HeadContent>
+    <meta name="description" content="@(L("Cart.Intro"))" />
+    <meta property="og:title" content="@(L("Cart.PageTitle"))" />
+    <meta property="og:description" content="@(L("Cart.Intro"))" />
+</HeadContent>
+
+<div class="page-shell theme-purple" lang="@_language.ToLowerInvariant()">
+    <SiteHeader Language="@_language" LanguageChanged="SetLanguage" />
+
+    <main class="cart-page" id="top">
+        <div class="container-fluid site-container">
+            @if (_placedOrder is not null)
+            {
+                <section id="order-confirmation" class="order-success" aria-labelledby="success-title">
+                    <span class="success-mark" aria-hidden="true">✓</span>
+                    <span class="eyebrow">// @L("Cart.OrderReceived")</span>
+                    <h1 id="success-title">@L("Cart.ThankYou")</h1>
+                    <p class="order-confirmation-note">@L("Cart.OrderNote")</p>
+                    <strong>@_placedOrder.Number</strong>
+                    <a class="btn primary-button" href="/">@L("Cart.BackToShop") →</a>
+                </section>
+            }
+            else
+            {
+                <header class="cart-heading">
+                    <span class="eyebrow">// PCWERK @L("Cart.Checkout").ToUpperInvariant()</span>
+                    <h1>@L("Cart.Heading")</h1>
+                    <p>@L("Cart.Intro")</p>
+                </header>
+
+                @if (CartService.Items.Count == 0)
+                {
+                    <section class="empty-cart" aria-labelledby="empty-title">
+                        <img class="empty-cart-illustration"
+                             src="/images/ui/empty-cart.svg"
+                             alt=""
+                             aria-hidden="true" />
+                        <h2 id="empty-title">@L("Cart.Empty")</h2>
+                        <p>@L("Cart.EmptyHint")</p>
+                        <a class="btn primary-button" href="/pcs">@L("Cart.ChoosePc") →</a>
+                    </section>
+                }
+                else
+                {
+                    <div class="row g-4 align-items-start">
+                        <div class="col-12 col-xl-7">
+                            <section class="cart-panel" aria-labelledby="items-title">
+                                <div class="panel-title">
+                                    <span class="eyebrow">01 / @L("Cart.Cart")</span>
+                                    <h2 id="items-title">@L("Cart.YourItems")</h2>
+                                </div>
+
+                                <div class="cart-items">
+                                    @foreach (var item in CartService.Items)
+                                    {
+                                        <article class="cart-item" @key="item.Id">
+                                            <div class="cart-item-image">
+                                                @if (!string.IsNullOrWhiteSpace(item.ImagePath))
+                                                {
+                                                    <img src="@item.ImagePath" alt="" />
+                                                }
+                                                else
+                                                {
+                                                    <span aria-hidden="true">PC</span>
+                                                }
+                                            </div>
+                                            <div class="cart-item-copy">
+                                                <small>@ItemType(item.Type)</small>
+                                                <h3>@CartItemName(item)</h3>
+                                                <ul class="list-unstyled">
+                                                    @foreach (var detail in item.Details.Take(5))
+                                                    {
+                                                        <li><span>@CartDetailLabel(detail)</span><strong>@CartDetailValue(detail)</strong></li>
+                                                    }
+                                                </ul>
+                                                @if (item.Details.Count > 5)
+                                                {
+                                                    <small>@($"+ {item.Details.Count - 5} {L("Cart.MoreDetails")}")</small>
+                                                }
+                                            </div>
+                                            <div class="cart-item-actions">
+                                                <strong>@Money(item.Total)</strong>
+                                                <div class="quantity-control" aria-label="@L("Cart.Quantity")">
+                                                    <button type="button" @onclick="() => SetQuantity(item, item.Quantity - 1)" aria-label="@L("Cart.DecreaseQuantity")">−</button>
+                                                    <span>@item.Quantity</span>
+                                                    <button type="button" @onclick="() => SetQuantity(item, item.Quantity + 1)" aria-label="@L("Cart.IncreaseQuantity")">+</button>
+                                                </div>
+                                                <button class="remove-item" type="button" @onclick="() => Remove(item.Id)">@L("Cart.Remove")</button>
+                                            </div>
+                                        </article>
+                                    }
+                                </div>
+                            </section>
+                        </div>
+
+                        <div class="col-12 col-xl-5">
+                            <section class="checkout-panel" aria-labelledby="checkout-title">
+                                <div class="panel-title">
+                                    <span class="eyebrow">02 / @L("Cart.Checkout").ToUpperInvariant()</span>
+                                    <h2 id="checkout-title">@L("Cart.CustomerDetails")</h2>
+                                </div>
+
+                                <EditForm Model="@_customer" OnValidSubmit="PlaceOrder" FormName="checkout">
+                                    <DataAnnotationsValidator />
+
+                                    <div class="mb-3">
+                                        <label class="form-label" for="full-name">@L("Cart.FullName") *</label>
+                                        <InputText id="full-name" class="form-control" @bind-Value="_customer.FullName" autocomplete="name" />
+                                        <LocalizedValidationMessage Language="@_language" For="@(() => _customer.FullName)" />
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label" for="email">@L("Cart.Email") *</label>
+                                            <InputText id="email" class="form-control" @bind-Value="_customer.Email" type="email" autocomplete="email" />
+                                            <LocalizedValidationMessage Language="@_language" For="@(() => _customer.Email)" />
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label" for="phone">@L("Cart.Phone") *</label>
+                                            <InputText id="phone" class="form-control" @bind-Value="_customer.Phone" type="tel" autocomplete="tel" />
+                                            <LocalizedValidationMessage Language="@_language" For="@(() => _customer.Phone)" />
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 mb-3">
+                                        <label class="form-label" for="street">@L("Cart.Street") *</label>
+                                        <InputText id="street" class="form-control" @bind-Value="_customer.Street" autocomplete="street-address" />
+                                        <LocalizedValidationMessage Language="@_language" For="@(() => _customer.Street)" />
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-5">
+                                            <label class="form-label" for="postal-code">@L("Cart.PostalCode") *</label>
+                                            <InputText id="postal-code" class="form-control" @bind-Value="_customer.PostalCode" autocomplete="postal-code" />
+                                            <LocalizedValidationMessage Language="@_language" For="@(() => _customer.PostalCode)" />
+                                        </div>
+                                        <div class="col-7">
+                                            <label class="form-label" for="city">@L("Cart.City") *</label>
+                                            <InputText id="city" class="form-control" @bind-Value="_customer.City" autocomplete="address-level2" />
+                                            <LocalizedValidationMessage Language="@_language" For="@(() => _customer.City)" />
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 mb-3">
+                                        <label class="form-label" for="comments">@L("Cart.Comments")</label>
+                                        <InputTextArea id="comments" class="form-control" @bind-Value="_customer.Comments" rows="3" />
+                                        <LocalizedValidationMessage Language="@_language" For="@(() => _customer.Comments)" />
+                                    </div>
+                                    <div class="form-check terms-check">
+                                        <InputCheckbox id="terms" class="form-check-input" @bind-Value="_customer.AcceptTerms" />
+                                        <label class="form-check-label" for="terms">
+                                            @L("Cart.AcceptTerms") <button type="button" data-bs-toggle="modal" data-bs-target="#terms-modal">@L("Cart.Terms")</button> @L("Cart.And") <button type="button" data-bs-toggle="modal" data-bs-target="#privacy-modal">@L("Cart.Privacy")</button>.
+                                        </label>
+                                        <LocalizedValidationMessage Language="@_language" For="@(() => _customer.AcceptTerms)" />
+                                    </div>
+
+                                    <div class="order-total">
+                                        <span>@L("Cart.Total")</span>
+                                        <strong>@Money(CartService.Total)</strong>
+                                    </div>
+                                    <p class="order-note">@L("Cart.OrderNote")</p>
+
+                                    @if (!string.IsNullOrWhiteSpace(_orderError))
+                                    {
+                                        <div class="alert alert-danger rounded-0" role="alert">@_orderError</div>
+                                    }
+
+                                    <button class="btn primary-button submit-order" type="submit" disabled="@_submitting">
+                                        @(_submitting ? L("Cart.Sending") : L("Cart.PlaceOrder")) <span aria-hidden="true">→</span>
+                                    </button>
+                                </EditForm>
+                            </section>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </main>
+
+    <SiteFooter Language="@_language" />
+</div>
+
+@code {
+    private readonly CustomerDetails _customer = new();
+    private string _language = "DE";
+    private string? _orderError;
+    private bool _submitting;
+    private PlacedOrder? _placedOrder;
+    private bool _scrollToOrderConfirmation;
+
+    protected override void OnInitialized() => CartService.Changed += CartChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var storedLanguage = await JS.InvokeAsync<string?>("pcLanguage.get");
+            var language = Translations.NormalizeLanguage(storedLanguage);
+            if (language != _language)
+            {
+                _language = language;
+                StateHasChanged();
+            }
+        }
+
+        if (_scrollToOrderConfirmation)
+        {
+            _scrollToOrderConfirmation = false;
+            await JS.InvokeVoidAsync("pcBuilder.scrollToElement", "order-confirmation");
+        }
+    }
+
+    private string L(string key) => Translations.Translate(_language, key);
+
+    private static string Money(decimal value) =>
+        $"CHF {value.ToString("#,0.00", System.Globalization.CultureInfo.InvariantCulture).Replace(",", "'")}";
+
+    private string ItemType(CartItemType type) => type switch
+    {
+        CartItemType.PcPreset => L("Cart.PcPreset"),
+        CartItemType.Laptop => L("Cart.Laptop"),
+        _ => L("Cart.CustomConfiguration")
+    };
+
+    private string CartItemName(CartItem item) => item.NameTranslationKey is { } key
+        ? L(key)
+        : item.Name;
+
+    private string CartDetailLabel(CartItemDetail detail) => detail.LabelTranslationKey is { } key
+        ? L(key)
+        : detail.Label;
+
+    private string CartDetailValue(CartItemDetail detail) => detail.ValueTranslationKey is { } key
+        ? L(key)
+        : detail.Value;
+
+    private async Task SetLanguage(string language)
+    {
+        _language = Translations.NormalizeLanguage(language);
+        await JS.InvokeVoidAsync("pcLanguage.set", _language);
+    }
+
+    private void SetQuantity(CartItem item, int quantity) =>
+        CartService.SetQuantity(item.Id, quantity);
+
+    private void Remove(Guid id) => CartService.Remove(id);
+
+    private async Task PlaceOrder()
+    {
+        if (_submitting)
+        {
+            return;
+        }
+
+        _submitting = true;
+        _orderError = null;
+        try
+        {
+            _placedOrder = await OrderService.PlaceAsync(_customer, _language);
+            _scrollToOrderConfirmation = true;
+        }
+        catch (CartChangedException exception)
+        {
+            _orderError = exception.Failure == CartRefreshFailure.PriceChanged
+                ? L("Cart.PriceChangedReview")
+                : L("Cart.ProductUnavailableReview");
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Could not place PCWerk order");
+            _orderError = L("Cart.SubmitError");
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private void CartChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => CartService.Changed -= CartChanged;
+}

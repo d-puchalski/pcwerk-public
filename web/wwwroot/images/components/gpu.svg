@@ -1,0 +1,3 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 140" role="img" aria-label="Graphics card placeholder">
+  <rect width="160" height="140" fill="#e7e1ea"/><g fill="none" stroke="#332f36" stroke-width="3"><path d="M18 39h125v66H18z"/><circle cx="58" cy="72" r="23" fill="#d8cedd"/><circle cx="104" cy="72" r="23" fill="#d8cedd"/><circle cx="58" cy="72" r="7" fill="#81748b"/><circle cx="104" cy="72" r="7" fill="#81748b"/><path d="m58 49 6 16 17-6-12 13 12 12-17-6-6 17-6-17-17 6 12-12-12-13 17 6zm46 0 6 16 17-6-12 13 12 12-17-6-6 17-6-17-17 6 12-12-12-13 17 6zM30 105v8h92v-8"/></g><text x="80" y="127" fill="#5d5067" font-family="Arial" font-size="8" font-weight="700" text-anchor="middle">PCWERK / GRAPHICS</text>
+</svg>

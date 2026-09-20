@@ -1,0 +1,193 @@
+@page "/laptops"
+@using Services.Catalog
+@inject LaptopCatalogService LaptopCatalogService
+@inject CartService Cart
+@inject IJSRuntime JS
+@inject ILogger<LaptopCatalog> Logger
+@inject NavigationManager Navigation
+
+<PageTitle>@L("LaptopCatalog.PageTitle")</PageTitle>
+<HeadContent>
+    <meta name="description" content="@(L("LaptopCatalog.Intro"))" />
+</HeadContent>
+
+<div class="page-shell theme-purple" lang="@_language.ToLowerInvariant()">
+    <SiteHeader Language="@_language" LanguageChanged="SetLanguage" />
+
+    <main class="laptop-catalog-page" id="top">
+        <div class="container-fluid site-container">
+            <header class="catalog-heading">
+                <span class="eyebrow">// @L("LaptopCatalog.Eyebrow")</span>
+                <h2 class="section-title">@L("LaptopCatalog.Heading")</h2>
+                <p>@L("LaptopCatalog.Intro")</p>
+            </header>
+
+            @if (_isLoading)
+            {
+                <div class="pcwerk-loader" role="status" aria-label="@L("LaptopCatalog.Loading")">
+                    <span class="pcwerk-spinner" aria-hidden="true"></span>
+                </div>
+            }
+            else if (_laptops.Count == 0)
+            {
+                <div class="catalog-state" role="status">@L("LaptopCatalog.Empty")</div>
+            }
+            else
+            {
+                <section class="catalog-tools" aria-label="@(L("LaptopCatalog.Filters"))">
+                    <div class="catalog-tools-primary">
+                        <label>
+                            <span>@L("LaptopCatalog.Search")</span>
+                            <input class="form-control" type="search" @bind="_search" @bind:event="oninput" placeholder="@(L("LaptopCatalog.SearchPlaceholder"))" />
+                        </label>
+                        <label>
+                            <span>@L("PcCatalog.Sort")</span>
+                            <select class="form-select" @bind="_sort">
+                                <option value="price-asc">@L("PcCatalog.SortPriceAscending")</option>
+                                <option value="price-desc">@L("PcCatalog.SortPriceDescending")</option>
+                                <option value="recommended">@L("PcCatalog.SortRecommended")</option>
+                                <option value="name">@L("PcCatalog.SortName")</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <details class="card catalog-filter-card">
+                        <summary class="card-header">
+                            <span class="filter-card-heading">
+                                <strong>@L("LaptopCatalog.Filters")</strong>
+                                <small>@(string.IsNullOrWhiteSpace(_manufacturer) ? L("LaptopCatalog.AllBrands") : _manufacturer)</small>
+                            </span>
+                            @if (!string.IsNullOrWhiteSpace(_manufacturer))
+                            {
+                                <span class="filter-card-count">1</span>
+                            }
+                        </summary>
+
+                        <div class="card-body laptop-filter-body">
+                            <label>
+                                <span>@L("LaptopCatalog.Brand")</span>
+                                <select class="form-select" @bind="_manufacturer">
+                                    <option value="">@L("LaptopCatalog.AllBrands")</option>
+                                    @foreach (var manufacturer in Manufacturers)
+                                    {
+                                        <option value="@manufacturer">@manufacturer</option>
+                                    }
+                                </select>
+                            </label>
+                            @if (!string.IsNullOrWhiteSpace(_manufacturer))
+                            {
+                                <button class="btn clear-filters" type="button" @onclick="ClearFilters">
+                                    @L("PcCatalog.ClearFilters")
+                                </button>
+                            }
+                        </div>
+                    </details>
+                </section>
+
+                <div class="catalog-results" aria-live="polite">
+                    @VisibleLaptops.Count @L("LaptopCatalog.Results")
+                </div>
+
+                @if (VisibleLaptops.Count == 0)
+                {
+                    <div class="catalog-state" role="status">@L("LaptopCatalog.NoResults")</div>
+                }
+                else
+                {
+                    <section class="laptop-grid" aria-label="@(L("LaptopCatalog.Heading"))">
+                        @foreach (var laptop in VisibleLaptops)
+                        {
+                            <LaptopCatalogCard Laptop="laptop" Language="@_language" OnAddToCart="AddToCart" @key="laptop.ProductId" />
+                        }
+                    </section>
+                }
+            }
+
+        </div>
+    </main>
+
+    <SiteFooter Language="@_language" />
+</div>
+
+@code {
+    private IReadOnlyList<CatalogLaptop> _laptops = [];
+    private string _language = "DE";
+    private string _search = string.Empty;
+    private string _manufacturer = string.Empty;
+    private string _sort = "price-asc";
+    private bool _isLoading = true;
+
+    private IReadOnlyList<string> Manufacturers => _laptops
+        .Select(x => x.Manufacturer)
+        .Where(x => !string.IsNullOrWhiteSpace(x))
+        .Select(x => x!)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(x => x)
+        .ToArray();
+
+    private IReadOnlyList<CatalogLaptop> VisibleLaptops
+    {
+        get
+        {
+            IEnumerable<CatalogLaptop> result = _laptops;
+            if (!string.IsNullOrWhiteSpace(_search))
+            {
+                result = result.Where(x => x.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                    || (x.Manufacturer?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (x.ManufacturerPartNumber?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false));
+            }
+            if (!string.IsNullOrWhiteSpace(_manufacturer))
+            {
+                result = result.Where(x => string.Equals(x.Manufacturer, _manufacturer, StringComparison.OrdinalIgnoreCase));
+            }
+
+            result = _sort switch
+            {
+                "price-desc" => result.OrderByDescending(x => x.Price).ThenBy(x => x.Name),
+                "name" => result.OrderBy(x => x.Name),
+                "recommended" => result.OrderBy(x => x.Rank == 0 ? int.MaxValue : x.Rank).ThenBy(x => x.Name),
+                _ => result.OrderBy(x => x.Price).ThenBy(x => x.Name)
+            };
+            return result.ToArray();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _laptops = await LaptopCatalogService.GetAvailableLaptopsAsync();
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Could not load the laptop catalog");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _language = Translations.NormalizeLanguage(await JS.InvokeAsync<string?>("pcLanguage.get"));
+        StateHasChanged();
+    }
+
+    private string L(string key) => Translations.Translate(_language, key);
+
+    private void ClearFilters() => _manufacturer = string.Empty;
+
+    private async Task SetLanguage(string language)
+    {
+        _language = Translations.NormalizeLanguage(language);
+        await JS.InvokeVoidAsync("pcLanguage.set", _language);
+    }
+
+    private void AddToCart(CatalogLaptop laptop)
+    {
+        Cart.AddLaptop(laptop);
+        Navigation.NavigateTo("/cart");
+    }
+}

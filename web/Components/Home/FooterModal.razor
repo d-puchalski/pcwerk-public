@@ -1,0 +1,22 @@
+<div class="modal fade footer-modal" id="@Id" tabindex="-1" aria-labelledby="@(Id)-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="@(Id)-title">@Title</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="@L("FooterModal.Close")"></button>
+            </div>
+            <div class="modal-body">@ChildContent</div>
+            <div class="modal-footer">
+                <button type="button" class="btn primary-button" data-bs-dismiss="modal">@L("FooterModal.Close")</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter, EditorRequired] public string Language { get; set; } = "DE";
+    private string L(string key) => Translations.Translate(Language, key);
+}

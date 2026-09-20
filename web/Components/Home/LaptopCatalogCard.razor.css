@@ -1,0 +1,212 @@
+.laptop-card {
+    display: flex;
+    position: relative;
+    min-width: 0;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    box-shadow: 7px 7px 0 var(--accent);
+}
+
+.laptop-image {
+    display: grid;
+    position: relative;
+    height: clamp(300px, 26vw, 380px);
+    min-height: 300px;
+    place-items: center;
+    overflow: hidden;
+    padding: 1.5rem;
+    background-color: var(--paper-deep);
+    background-image:
+        linear-gradient(145deg, rgba(255, 255, 255, .48), transparent 55%),
+        radial-gradient(rgba(var(--ink-rgb), .12) 1px, transparent 1px);
+    background-size: auto, 18px 18px;
+    border-bottom: 2px solid var(--ink);
+}
+
+.laptop-image img {
+    width: 82%;
+    height: 78%;
+    object-fit: contain;
+    filter: drop-shadow(0 18px 14px rgba(var(--ink-rgb), .2));
+}
+
+.rank-badge {
+    position: absolute;
+    z-index: 2;
+    top: 1.1rem;
+    left: 1.1rem;
+    padding: .45rem .65rem;
+    background: var(--accent-dark);
+    border: 2px solid var(--ink);
+    color: #fff;
+    font-size: .65rem;
+    font-weight: 900;
+    letter-spacing: .08em;
+}
+
+.image-placeholder {
+    color: var(--muted);
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: .14em;
+}
+
+.laptop-copy {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+    padding: clamp(1.25rem, 2vw, 2rem);
+}
+
+.laptop-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: .75rem;
+    color: var(--accent-dark);
+    font-size: .62rem;
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.laptop-meta span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+h5 {
+    display: -webkit-box;
+    margin: .9rem 0 1.5rem;
+    overflow: hidden;
+    font-size: clamp(0.5remm, 0.7rem, 1rem);
+    font-weight: 500;
+    letter-spacing: -.04em;
+    line-height: 1.08;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+
+.component-details {
+    margin: 0 0 1.2rem;
+    background: transparent;
+    border: 1px solid var(--ink);
+}
+
+.component-details summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .75rem .85rem;
+    cursor: pointer;
+    font-size: .68rem;
+    font-weight: 900;
+    letter-spacing: .06em;
+    list-style: none;
+    text-transform: uppercase;
+}
+
+.component-details summary::-webkit-details-marker {
+    display: none;
+}
+
+.component-details summary::after {
+    content: "+";
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.component-details[open] summary::after {
+    content: "−";
+}
+
+.component-details ul {
+    margin: 0;
+    border-top: 1px solid var(--line-strong);
+}
+
+.component-details li {
+    padding: .7rem .85rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.component-details li:last-child {
+    border-bottom: 0;
+}
+
+.component-details small {
+    display: block;
+    color: var(--muted);
+    font-size: .63rem;
+    text-transform: uppercase;
+}
+
+footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 2px solid var(--ink);
+}
+
+footer strong {
+    font-size: clamp(1.7rem, 2.7vw, 2.35rem);
+    font-weight: 900;
+    letter-spacing: -.04em;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+footer .btn {
+    min-height: 48px;
+    border-radius: 0;
+    font-size: .7rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+    .laptop-card {
+        transition: box-shadow .18s ease, transform .18s ease;
+    }
+
+    .laptop-card:hover {
+        box-shadow: 10px 10px 0 var(--accent);
+        transform: translate(-2px, -2px);
+    }
+
+    .laptop-image img {
+        transition: transform .28s ease;
+    }
+
+    .laptop-card:hover .laptop-image img {
+        transform: scale(1.025);
+    }
+}
+
+@media (max-width: 575.98px) {
+    .laptop-image {
+        height: 270px;
+        min-height: 220px;
+    }
+
+    .laptop-image img {
+        width: 88%;
+        height: 74%;
+    }
+
+    .laptop-copy {
+        padding: 1.1rem;
+    }
+
+    footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}

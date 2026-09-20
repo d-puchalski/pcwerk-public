@@ -1,0 +1,40 @@
+@if (Reviews.Count > 0)
+{
+    <section class="section-pad reviews-section" aria-labelledby="reviews-title">
+        <div class="container-fluid site-container">
+            <div class="section-heading">
+                <span class="eyebrow">// @L("CustomerReviews.CustomerBuilds")</span>
+                <h2 class="section-title" id="reviews-title">
+                    @L("CustomerReviews.RealBuilds") <span>@L("CustomerReviews.RealFeedback")</span>
+                </h2>
+            </div>
+
+            <div class="row g-3">
+                @foreach (var review in Reviews)
+                {
+                    <div class="col-lg-4">
+                        <article class="review-card">
+                            <span aria-label="@($"{review.Rating} / 5")">@Stars(review.Rating)</span>
+                            <p>@review.Text</p>
+                            <footer>
+                                <strong>@review.Name · @review.Location</strong>
+                                <small>@review.Build</small>
+                            </footer>
+                        </article>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    private static IReadOnlyList<Review> Reviews => SampleCatalog.Reviews;
+
+    private string L(string key) => Translations.Translate(Language, key);
+
+    private static string Stars(int rating) => new('★', Math.Clamp(rating, 0, 5));
+}

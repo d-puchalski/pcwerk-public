@@ -1,0 +1,105 @@
+@using Services.Catalog
+@using Services.Models
+@inject PcPresetCatalogService PresetCatalog
+@inject ILogger<PcShowcase> Logger
+
+<section class="section-pad products-section" id="ready-pcs" aria-labelledby="ready-title">
+    <div class="container-fluid site-container">
+        <div class="section-heading split-heading">
+            <div>
+                <span class="eyebrow">// @L("PcShowcase.ReadyToPlay")</span>
+                <h2 class="section-title" id="ready-title">@L("PcShowcase.ChooseYour") <span>@L("PcShowcase.Machine")</span></h2>
+            </div>
+            <p>@L("PcShowcase.PresetDescription")</p>
+        </div>
+
+        @if (_isLoading)
+        {
+            <div class="pcwerk-loader" role="status" aria-label="@L("PcShowcase.LoadingPresets")">
+                <span class="pcwerk-spinner" aria-hidden="true"></span>
+            </div>
+        }
+        else if (Builds.Count == 0)
+        {
+            <div class="catalog-state" role="status">
+                <strong>@L("PcShowcase.NoAvailablePresets")</strong>
+                <span>@L("PcShowcase.PresetAvailabilityHint")</span>
+            </div>
+        }
+        else
+        {
+        <div id="pcCarousel" class="carousel slide pc-carousel" data-bs-interval="false" data-bs-touch="true">
+            <div class="carousel-inner">
+                @for (var index = 0; index < Builds.Count; index++)
+                {
+                    var build = Builds[index];
+                    <div class="carousel-item @(index == 0 ? "active" : null)">
+                        <PcCard Build="build"
+                                Language="@Language"
+                                Index="@(index + 1)"
+                                Total="@Builds.Count"
+                                OnSelected="SelectPreset" />
+                    </div>
+                }
+            </div>
+
+            <div class="carousel-footer">
+                <div class="carousel-indicators">
+                    @for (var index = 0; index < Builds.Count; index++)
+                    {
+                        <button type="button"
+                                data-bs-target="#pcCarousel"
+                                data-bs-slide-to="@index"
+                                class="@(index == 0 ? "active" : null)"
+                                aria-current="@(index == 0 ? "true" : null)"
+                                aria-label="@Builds[index].Name"></button>
+                    }
+                </div>
+                <div class="carousel-navigation" aria-label="@(L("PcShowcase.ProductNavigation"))">
+                    <button type="button"
+                            data-bs-target="#pcCarousel"
+                            data-bs-slide="prev"
+                            aria-label="@(L("PcShowcase.PreviousPc"))">←</button>
+                    <button type="button"
+                            data-bs-target="#pcCarousel"
+                            data-bs-slide="next"
+                            aria-label="@(L("PcShowcase.NextPc"))">→</button>
+                </div>
+            </div>
+        </div>
+        }
+
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    [Parameter]
+    public EventCallback<CatalogPcPreset> OnSelected { get; set; }
+
+    private bool _isLoading = true;
+    private IReadOnlyList<CatalogPcPreset> Builds { get; set; } = [];
+
+    private string L(string key) => Translations.Translate(Language, key);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Builds = await PresetCatalog.GetShowcasePresetsAsync();
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Nie udało się wczytać produktów do PcShowcase.");
+            Builds = [];
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private Task SelectPreset(CatalogPcPreset build) => OnSelected.InvokeAsync(build);
+}

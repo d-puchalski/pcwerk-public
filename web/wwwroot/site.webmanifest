@@ -1,0 +1,12 @@
+{
+  "name": "PCWerk",
+  "short_name": "PCWerk",
+  "description": "Custom PCs built in Zürich.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f1edf3",
+  "theme_color": "#332f36",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

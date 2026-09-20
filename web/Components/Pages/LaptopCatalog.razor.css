@@ -1,0 +1,187 @@
+.laptop-catalog-page {
+    min-height: 65vh;
+    padding: clamp(2rem, 4vw, 4rem) 0;
+    background: var(--paper);
+}
+
+.catalog-heading {
+    max-width: 950px;
+    margin-bottom: 3rem;
+}
+
+    .catalog-heading h2 {
+        margin: 1rem 0;
+    }
+
+    .catalog-heading p {
+        max-width: 760px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 1.05rem;
+        line-height: 1.7;
+    }
+
+.catalog-tools {
+    margin-bottom: 1rem;
+    padding: clamp(1rem, 2vw, 1.5rem);
+    background: var(--surface);
+    border: 2px solid var(--ink);
+}
+
+    .catalog-tools label > span {
+        display: block;
+        margin-bottom: .4rem;
+        color: var(--muted);
+        font-size: .68rem;
+        font-weight: 900;
+        letter-spacing: .07em;
+        text-transform: uppercase;
+    }
+
+    .catalog-tools .form-control,
+    .catalog-tools .form-select {
+        min-height: 48px;
+        border: 1px solid var(--ink);
+        border-radius: 0;
+    }
+
+.catalog-tools-primary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, .35fr);
+    gap: 1rem;
+}
+
+.catalog-filter-card {
+    margin-top: 1.5rem;
+    border: 1px solid color-mix(in srgb, var(--ink) 40%, transparent);
+    border-radius: 0;
+    background: var(--paper);
+}
+
+    .catalog-filter-card > summary {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        min-height: 70px;
+        padding: 1rem 1.25rem;
+        border: 0;
+        border-radius: 0;
+        background: var(--paper);
+        cursor: pointer;
+        list-style: none;
+    }
+
+        .catalog-filter-card > summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .catalog-filter-card > summary::after {
+            margin-left: .25rem;
+            content: "+";
+            font-size: 1.25rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+    .catalog-filter-card[open] > summary {
+        border-bottom: 1px solid color-mix(in srgb, var(--ink) 30%, transparent);
+    }
+
+        .catalog-filter-card[open] > summary::after {
+            content: "−";
+        }
+
+.filter-card-heading {
+    display: grid;
+    gap: .2rem;
+    margin-right: auto;
+}
+
+    .filter-card-heading strong {
+        font-size: .95rem;
+        font-weight: 900;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+
+    .filter-card-heading small {
+        color: var(--muted);
+        font-size: .82rem;
+    }
+
+.filter-card-count {
+    min-width: 1.75rem;
+    padding: .2rem .4rem;
+    background: var(--ink);
+    color: var(--surface);
+    font-size: .68rem;
+    font-weight: 900;
+    text-align: center;
+}
+
+.laptop-filter-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.clear-filters {
+    min-height: 48px;
+    padding: .55rem .8rem;
+    border: 1px solid var(--ink);
+    border-radius: 0;
+    background: transparent;
+    color: var(--ink);
+    font-size: .7rem;
+    font-weight: 900;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+    .clear-filters:hover,
+    .clear-filters:focus-visible {
+        background: var(--ink);
+        color: var(--surface);
+    }
+
+.catalog-results {
+    margin-bottom: 1.25rem;
+    color: var(--muted);
+    font-size: .72rem;
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-align: right;
+    text-transform: uppercase;
+}
+
+.laptop-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+}
+
+.catalog-state {
+    padding: 2rem;
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    text-align: center;
+}
+
+@media (max-width: 767.98px) {
+    .catalog-tools-primary,
+    .laptop-filter-body {
+        grid-template-columns: 1fr;
+    }
+
+    .laptop-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    .laptop-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

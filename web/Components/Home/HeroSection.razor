@@ -1,0 +1,53 @@
+<section class="hero-section" aria-labelledby="hero-title">
+    <div class="container-fluid site-container">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6 hero-copy">
+                <span class="eyebrow">// @L("HeroSection.CustomPcsZurich")</span>
+                <h1 id="hero-title">
+                    @L("HeroSection.YourPc")<br />
+                    <span>@L("HeroSection.BuiltYourWay")</span>
+                </h1>
+                <p>@L("HeroSection.CustomGamingAndWorkstationPcsAssembledConfiguredAndStressTestedInZurich")</p>
+
+                <div class="hero-actions d-flex flex-column flex-sm-row gap-3">
+                    <button class="btn primary-button btn-lg" type="button" @onclick="OnConfiguratorRequested">
+                        @L("HeroSection.BuildYourPc") <span aria-hidden="true">→</span>
+                    </button>
+                    <a class="btn secondary-button btn-lg" href="/pcs">@L("HeroSection.ViewReadyMadePcs")</a>
+                </div>
+
+                <ul class="trust-bar list-unstyled" aria-label="@(L("HeroSection.PcWerkServices"))">
+                    <li><span aria-hidden="true">✓</span>@L("HeroSection.BuiltInZurich")</li>
+                    <li><span aria-hidden="true">✓</span>@L("HeroSection.CompatibilityChecked")</li>
+                    <li><span aria-hidden="true">✓</span>@L("HeroSection.StressTested")</li>
+                    <li><span aria-hidden="true">✓</span>@L("HeroSection.PersonalSupport")</li>
+                </ul>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="hero-product">
+                    <div class="product-coordinate top-left">PW / SYSTEM_01</div>
+                    <img src="/images/pcs/hero-pc.webp"
+                         width="1254"
+                         height="1254"
+                         alt="@(L("HeroSection.PremiumPcWerkDesktopPcWithVisibleComponents"))"
+                         fetchpriority="high" />
+                    <div class="product-coordinate bottom-right">@L("HeroSection.AssembledInZurichCode")</div>
+                    <div class="hero-product-label">
+                        <small>@L("HeroSection.PcWerkCustomBuild")</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    [Parameter]
+    public EventCallback OnConfiguratorRequested { get; set; }
+
+    private string L(string key) => Translations.Translate(Language, key);
+}

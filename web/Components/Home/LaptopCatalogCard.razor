@@ -1,0 +1,77 @@
+<article class="laptop-card">
+    <div class="laptop-image">
+        <span class="rank-badge">TOP @Laptop.Rank</span>
+        @if (!string.IsNullOrWhiteSpace(Laptop.ImageUrl))
+        {
+            <img src="@Laptop.ImageUrl" alt="@Laptop.Name" loading="lazy" />
+        }
+        else
+        {
+            <span class="image-placeholder" aria-hidden="true">LAPTOP</span>
+        }
+    </div>
+    <div class="laptop-copy">
+        <div class="laptop-meta">
+            <span>@(Laptop.Manufacturer ?? L("LaptopCatalog.Laptop"))</span>
+            @if (!string.IsNullOrWhiteSpace(Laptop.ManufacturerPartNumber))
+            {
+                <span>MPN @Laptop.ManufacturerPartNumber</span>
+            }
+        </div>
+        <h5>@Laptop.Name</h5>
+
+        @if (Laptop.Components.Count > 0)
+        {
+            <details class="component-details">
+                <summary>@L("PcCatalog.ShowAllComponents")</summary>
+                <ul class="list-unstyled">
+                    @foreach (var component in Laptop.Components)
+                    {
+                        <li>
+                            <div>
+                                <small>@CategoryLabel(component.CategoryCode)</small>
+                                @component.Name
+                            </div>
+                        </li>
+                    }
+                </ul>
+            </details>
+        }
+
+        <footer>
+            <strong>@Money(Laptop.Price)</strong>
+            <button class="btn primary-button" type="button" @onclick="AddToCart">
+                @L("LaptopCatalog.AddToCart") <span aria-hidden="true">→</span>
+            </button>
+        </footer>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public CatalogLaptop Laptop { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    [Parameter]
+    public EventCallback<CatalogLaptop> OnAddToCart { get; set; }
+
+    private string L(string key) => Translations.Translate(Language, key);
+
+    private string CategoryLabel(string code) => code switch
+    {
+        "CPU" => L("ConfiguratorPreview.Processor"),
+        "GPU" => L("ConfiguratorPreview.GraphicsCard"),
+        "RAM" => L("ConfiguratorPreview.Memory"),
+        "STORAGE" => L("ConfiguratorPreview.Storage"),
+        "DISPLAY" => L("LaptopCatalog.Display"),
+        "POWER" => L("ConfiguratorPreview.PowerSupply"),
+        _ => code
+    };
+
+    private Task AddToCart() => OnAddToCart.InvokeAsync(Laptop);
+
+    private static string Money(decimal value) =>
+        $"CHF {value.ToString("#,0.00", System.Globalization.CultureInfo.InvariantCulture).Replace(",", "'")}";
+}

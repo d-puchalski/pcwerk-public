@@ -1,0 +1,17 @@
+<section class="swiss-trust" id="delivery" aria-label="@(L("SwissTrust.PcWerkPromises"))">
+    <div class="container-fluid site-container">
+        <div class="trust-grid">
+            <div><span>ZH</span><strong>@L("SwissTrust.BuiltInZurich")</strong></div>
+            <div><span>CH</span><strong>@L("SwissTrust.SwissDelivery")</strong></div>
+            <div><span>01</span><strong>@L("SwissTrust.PersonalSupport")</strong></div>
+            <div><span>CHF</span><strong>@L("SwissTrust.ClearPricing")</strong></div>
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    private string L(string key) => Translations.Translate(Language, key);
+}

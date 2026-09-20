@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Rent.Services\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EditorConfigFiles Remove="C:\GIT\PcSell\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="C:\GIT\PcSell\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
+    <ProjectReference Include="..\common\EFDB\EFDB.csproj" />
+    <ProjectReference Include="..\common\services\Services.csproj" />
+  </ItemGroup>
+
+</Project>

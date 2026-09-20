@@ -1,0 +1,112 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@if (_hasOpened)
+{
+    <div class="configurator-modal @(IsOpen ? "is-open" : "is-closed")"
+         aria-hidden="@(!IsOpen)"
+         @onkeydown="HandleKeyDown">
+        <div class="configurator-modal-backdrop" @onclick="RequestClose">
+            <section id="configurator-modal-dialog"
+                     class="configurator-modal-dialog"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="configurator-modal-title"
+                     aria-describedby="configurator-modal-description"
+                     tabindex="-1"
+                     @onclick:stopPropagation="true">
+                <header class="configurator-modal-header">
+                    <div class="configurator-modal-brand" aria-hidden="true">
+                        <span>PW</span>
+                        <div>
+                            <strong>PCWERK</strong>
+                            <small>CONFIGURATION STUDIO</small>
+                        </div>
+                    </div>
+
+                    <div class="configurator-modal-heading">
+                        <span class="eyebrow">// @L("ConfiguratorPreview.HardwarePlusPcWerkServices")</span>
+                        <h2 id="configurator-modal-title">@L("ConfiguratorPreview.YourPcYourService")</h2>
+                    </div>
+
+                    <button class="configurator-modal-close"
+                            type="button"
+                            aria-label="@L("ConfiguratorPreview.Close")"
+                            @onclick="RequestClose">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </header>
+
+                <div class="configurator-modal-status">
+                    <span><i aria-hidden="true"></i> @L("ConfiguratorPreview.ConfiguratorSteps")</span>
+                    <span>@L("ConfiguratorPreview.AutomaticallyCompatibilityChecked")</span>
+                    <span>PCWERK.CH</span>
+                </div>
+
+                <div class="configurator-modal-scroll">
+                    <ConfiguratorPreview Language="@Language" CatalogPresetId="@CatalogPresetId" />
+                </div>
+            </section>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    [Parameter]
+    public long? CatalogPresetId { get; set; }
+
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public EventCallback Closed { get; set; }
+
+    private bool _hasOpened;
+    private bool? _appliedOpenState;
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen)
+        {
+            _hasOpened = true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_appliedOpenState == IsOpen)
+        {
+            return;
+        }
+
+        _appliedOpenState = IsOpen;
+        await JS.InvokeVoidAsync("pcBuilder.setModalOpen", IsOpen, "configurator-modal-dialog");
+    }
+
+    private Task RequestClose() => Closed.InvokeAsync();
+
+    private Task HandleKeyDown(KeyboardEventArgs args) =>
+        args.Key == "Escape" ? RequestClose() : Task.CompletedTask;
+
+    private string L(string key) => Translations.Translate(Language, key);
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_appliedOpenState != true)
+        {
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("pcBuilder.setModalOpen", false, "configurator-modal-dialog");
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page is already gone, so there is no browser state left to restore.
+        }
+    }
+}

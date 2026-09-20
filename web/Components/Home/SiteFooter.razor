@@ -1,0 +1,96 @@
+@inject SiteContactOptions Contact
+
+<footer class="site-footer" id="footer-support">
+    <div class="container-fluid site-container">
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <a class="navbar-brand site-logo" href="/#top" aria-label="PCWerk">
+                    <BrandLogo />
+                </a>
+                <p class="footer-origin">
+                    <span>@L("SiteFooter.CustomPcsBuiltInZurich")</span>
+                    <img class="footer-swiss-flag" src="/images/flags/ch.svg" alt="" aria-hidden="true" />
+                </p>
+                <small>@L("SiteFooter.YourPcYourWay")</small>
+            </div>
+
+            <nav aria-label="@(L("SiteFooter.Shop"))">
+                <h2>@L("SiteFooter.Shop")</h2>
+                <a href="/pcs">@L("SiteFooter.ReadyMadePcs")</a>
+                <a href="/?configurator=true"
+                   @onclick="RequestConfigurator"
+                   @onclick:preventDefault="OnConfiguratorRequested.HasDelegate">
+                    @L("SiteFooter.Configurator")
+                </a>
+                <a href="/#how-it-works">@L("SiteFooter.HowItWorks")</a>
+            </nav>
+            <nav aria-label="@(L("SiteFooter.Company"))">
+                <h2>@L("SiteFooter.Company")</h2>
+                <a href="/#about">@L("SiteFooter.AboutPcWerk")</a>
+                <button type="button" data-bs-toggle="modal" data-bs-target="#contact-modal">@L("SiteFooter.Contact")</button>
+                <button type="button" data-bs-toggle="modal" data-bs-target="#delivery-modal">@L("SiteFooter.Delivery")</button>
+            </nav>
+            <nav aria-label="@(L("SiteFooter.Legal"))">
+                <h2>@L("SiteFooter.Legal")</h2>
+                <button type="button" data-bs-toggle="modal" data-bs-target="#terms-modal">@L("SiteFooter.Terms")</button>
+                <button type="button" data-bs-toggle="modal" data-bs-target="#privacy-modal">@L("SiteFooter.Privacy")</button>
+            </nav>
+        </div>
+
+        <div class="footer-bottom">
+            <span>@L("SiteFooter.Copyright")</span>
+            <span>@L("SiteFooter.CustomPcsBuiltInZurichBottom")</span>
+        </div>
+    </div>
+</footer>
+
+<FooterModal Id="contact-modal" Title="@L("SiteFooter.Contact")" Language="@Language">
+    <address class="contact-details">
+        <strong>@Contact.Name</strong>
+        <span>@Contact.Address</span>
+        <a href="tel:@PhoneLink">@Contact.Phone</a>
+        <a href="mailto:@Contact.Email">@Contact.Email</a>
+    </address>
+    <iframe class="contact-map" title="@L("FooterModal.MapTitle")" loading="lazy"
+            src="@MapUrl"></iframe>
+</FooterModal>
+
+<FooterModal Id="delivery-modal" Title="@L("SiteFooter.Delivery")" Language="@Language">
+    <LegalSection Title="@L("FooterModal.DeliveryEstimateTitle")" Text="@L("FooterModal.DeliveryEstimateText")" />
+    <LegalSection Title="@L("FooterModal.DeliverySuppliersTitle")" Text="@L("FooterModal.DeliverySuppliersText")" />
+    <LegalSection Title="@L("FooterModal.DeliveryProcessTitle")" Text="@L("FooterModal.DeliveryProcessText")" />
+    <LegalSection Title="@L("FooterModal.DeliveryReceiptTitle")" Text="@L("FooterModal.DeliveryReceiptText")" />
+</FooterModal>
+
+<FooterModal Id="terms-modal" Title="@L("SiteFooter.Terms")" Language="@Language">
+    @foreach (var section in TermsSections)
+    {
+        <LegalSection Title="@L($"FooterModal.Terms{section}Title")" Text="@LegalText($"FooterModal.Terms{section}Text")" />
+    }
+</FooterModal>
+
+<FooterModal Id="privacy-modal" Title="@L("SiteFooter.Privacy")" Language="@Language">
+    @foreach (var section in PrivacySections)
+    {
+        <LegalSection Title="@L($"FooterModal.Privacy{section}Title")" Text="@LegalText($"FooterModal.Privacy{section}Text")" />
+    }
+</FooterModal>
+
+@code {
+    private static readonly int[] TermsSections = [1, 2, 3, 4, 5, 6, 7, 8];
+    private static readonly int[] PrivacySections = [1, 2, 3, 4, 5, 6];
+
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    [Parameter]
+    public EventCallback OnConfiguratorRequested { get; set; }
+
+    private string PhoneLink => Contact.Phone.Replace(" ", string.Empty, StringComparison.Ordinal);
+    private string MapUrl => "https://www.openstreetmap.org/export/embed.html?bbox=8.38%2C47.35%2C8.48%2C47.40&layer=mapnik&marker=47.369%2C8.424";
+    private string L(string key) => Translations.Translate(Language, key);
+    private string LegalText(string key) => string.Format(L(key), Contact.Address, Contact.Email, Contact.Phone);
+    private Task RequestConfigurator() => OnConfiguratorRequested.HasDelegate
+        ? OnConfiguratorRequested.InvokeAsync()
+        : Task.CompletedTask;
+}

@@ -1,0 +1,182 @@
+@implements IDisposable
+@inject CartService Cart
+
+<header class="site-header sticky-top">
+    <nav class="navbar navbar-expand-lg" aria-label="@(L("SiteHeader.MainNavigation"))">
+        <div class="container-fluid site-container">
+            <a class="navbar-brand site-logo" href="/#top" aria-label="@(L("SiteHeader.Home"))">
+                <BrandLogo />
+            </a>
+
+            <div class="mobile-actions ms-auto d-flex d-lg-none align-items-center gap-2">
+                <button class="navbar-toggler"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#mainNavigation"
+                        aria-controls="mainNavigation"
+                        aria-expanded="false"
+                        aria-label="@(L("SiteHeader.OpenMenu"))">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <a class="btn cart-button" href="@CartHref" aria-label="@CartLabel">
+                    <svg aria-hidden="true"
+                         width="18"
+                         height="18"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                        <circle cx="9" cy="20" r="1" />
+                        <circle cx="19" cy="20" r="1" />
+                        <path d="M3 4h2l2.4 10.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 8H6" />
+                    </svg>
+                    <span class="cart-count">@Cart.ItemCount</span>
+                </a>
+            </div>
+
+            <div class="collapse navbar-collapse" id="mainNavigation">
+                <ul class="navbar-nav mx-auto align-items-lg-center gap-lg-2">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pcs">@L("SiteHeader.ReadyMadePcs")</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/laptops">@L("SiteHeader.Laptops")</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link"
+                           href="/?configurator=true"
+                           @onclick="RequestConfigurator"
+                           @onclick:preventDefault="OnConfiguratorRequested.HasDelegate">
+                            @L("SiteHeader.Configurator")
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="nav-tools d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2">
+                    <div class="dropdown">
+                        <button class="btn tool-button dropdown-toggle w-100"
+                                type="button"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false"
+                                aria-label="@(L("SiteHeader.Language"))">
+                            <img class="language-flag" src="@CurrentLanguageFlagSrc" alt="" aria-hidden="true" />
+                            <small>@L("SiteHeader.Language")</small> @Language
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <button class="dropdown-item @(Language == "DE" ? "active" : null)"
+                                        type="button"
+                                        @onclick="ChangeToGerman">
+                                    <img class="language-flag" src="/images/flags/de.svg" alt="" aria-hidden="true" />
+                                    <span class="language-code">DE</span>
+                                    <span>@L("SiteHeader.German")</span>
+                                </button>
+                            </li>
+                            <li>
+                                <button class="dropdown-item @(Language == "EN" ? "active" : null)"
+                                        type="button"
+                                        @onclick="ChangeToEnglish">
+                                    <img class="language-flag" src="/images/flags/gb.svg" alt="" aria-hidden="true" />
+                                    <span class="language-code">EN</span>
+                                    <span>@L("SiteHeader.English")</span>
+                                </button>
+                            </li>
+                            <li>
+                                <button class="dropdown-item @(Language == "IT" ? "active" : null)"
+                                        type="button"
+                                        @onclick="ChangeToItalian">
+                                    <img class="language-flag" src="/images/flags/it.svg" alt="" aria-hidden="true" />
+                                    <span class="language-code">IT</span>
+                                    <span>@L("SiteHeader.Italian")</span>
+                                </button>
+                            </li>
+                            <li>
+                                <button class="dropdown-item @(Language == "FR" ? "active" : null)"
+                                        type="button"
+                                        @onclick="ChangeToFrench">
+                                    <img class="language-flag" src="/images/flags/fr.svg" alt="" aria-hidden="true" />
+                                    <span class="language-code">FR</span>
+                                    <span>@L("SiteHeader.French")</span>
+                                </button>
+                            </li>
+                            <li>
+                                <button class="dropdown-item @(Language == "PL" ? "active" : null)"
+                                        type="button"
+                                        @onclick="ChangeToPolish">
+                                    <img class="language-flag" src="/images/flags/pl.svg" alt="" aria-hidden="true" />
+                                    <span class="language-code">PL</span>
+                                    <span>@L("SiteHeader.Polish")</span>
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <a class="btn cart-button d-none d-lg-inline-flex"
+                       href="@CartHref"
+                       aria-label="@CartLabel">
+                        @L("SiteHeader.Cart") <span class="cart-count">@Cart.ItemCount</span>
+                    </a>
+                    <a class="btn primary-button header-cta"
+                       href="/?configurator=true"
+                       @onclick="RequestConfigurator"
+                       @onclick:preventDefault="OnConfiguratorRequested.HasDelegate">
+                        @L("SiteHeader.BuildYourPc") <span aria-hidden="true">→</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+</header>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    [Parameter]
+    public EventCallback<string> LanguageChanged { get; set; }
+
+    [Parameter]
+    public EventCallback OnConfiguratorRequested { get; set; }
+
+    private string L(string key) => Translations.Translate(Language, key);
+
+    private string CurrentLanguageFlagSrc => Language switch
+    {
+        "EN" => "/images/flags/gb.svg",
+        "IT" => "/images/flags/it.svg",
+        "FR" => "/images/flags/fr.svg",
+        "PL" => "/images/flags/pl.svg",
+        _ => "/images/flags/de.svg"
+    };
+
+    private const string CartHref = "/cart";
+
+    private string CartLabel => string.Format(
+        System.Globalization.CultureInfo.InvariantCulture,
+        L("SiteHeader.CartItems"),
+        Cart.ItemCount);
+
+    protected override void OnInitialized() => Cart.Changed += CartChanged;
+
+    private void CartChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Cart.Changed -= CartChanged;
+
+    private Task ChangeLanguage(string value) => LanguageChanged.InvokeAsync(value);
+
+    private Task ChangeToGerman() => ChangeLanguage("DE");
+
+    private Task ChangeToEnglish() => ChangeLanguage("EN");
+
+    private Task ChangeToItalian() => ChangeLanguage("IT");
+
+    private Task ChangeToFrench() => ChangeLanguage("FR");
+
+    private Task ChangeToPolish() => ChangeLanguage("PL");
+
+    private Task RequestConfigurator() => OnConfiguratorRequested.HasDelegate
+        ? OnConfiguratorRequested.InvokeAsync()
+        : Task.CompletedTask;
+}

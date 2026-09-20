@@ -1,0 +1,1416 @@
+@using Services.Models
+@inject PcBuilderService BuilderService
+@inject Services.Catalog.PcPresetCatalogService PresetCatalog
+@inject CartService Cart
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ILogger<ConfiguratorPreview> Logger
+
+<div class="configurator-surface">
+    <div class="config-window">
+            <div class="window-bar">
+                <span>
+                    <i aria-hidden="true"></i> PCWERK_CONFIGURATOR.EXE
+                </span>
+                <span class="window-session">SESSION / @_sessionCode</span>
+                <div class="window-controls"
+                     aria-hidden="true">
+                    <b></b>
+                    <b></b>
+                    <b></b>
+                </div>
+            </div>
+
+            <div class="config-console">
+                <nav class="flow-progress" aria-label="@(L("ConfiguratorPreview.ConfiguratorSteps"))">
+                    @foreach (var phase in VisiblePhases)
+                    {
+                        <button @onclick="() => GoToPhase(phase.Number)"
+                                type="button"
+                                disabled="@(!CanOpenPhase(phase.Number))"
+                                class="flow-step @(_activePhase == phase.Number ? "active" : null) @(_activePhase > phase.Number ? "complete" : null)"
+                                aria-current="@(_activePhase == phase.Number ? "step" : null)">
+                            <span>@DisplayPhaseNumber(phase.Number).ToString("00")</span>
+                            <strong>@L(phase.TranslationKey)</strong>
+                        </button>
+                    }
+                </nav>
+
+                @if (_catalogLoading)
+                {
+                    <div class="pcwerk-loader" role="status" aria-label="@L("ConfiguratorPreview.CatalogLoading")">
+                        <span class="pcwerk-spinner" aria-hidden="true"></span>
+                    </div>
+                }
+                else if (_catalogError)
+                {
+                    <div class="catalog-message error" role="alert">@L("ConfiguratorPreview.CatalogUnavailable")</div>
+                }
+                else if (BuilderService.Products.Count == 0)
+                {
+                    <div class="catalog-message" role="status">@L("ConfiguratorPreview.NoActiveDatabaseOffers")</div>
+                }
+
+                <div class="builder-status"
+                     aria-live="polite">
+                    <div class="build-progress-head">
+                        <div>
+                            <small>@L("ConfiguratorPreview.CurrentStep")</small>
+                            <strong>@CurrentPhasePosition.ToString("00") / @VisiblePhases.Count.ToString("00") — @CurrentPhaseName</strong>
+                        </div>
+                    </div>
+                    <div class="build-progress"
+                         role="progressbar"
+                         aria-label="@L("ConfiguratorPreview.ConfigurationProgress")"
+                         aria-valuenow="@CurrentPhasePosition"
+                         aria-valuemin="1"
+                         aria-valuemax="@VisiblePhases.Count">
+                        <span style="width: @((CurrentPhasePosition * 100) / VisiblePhases.Count)%"></span>
+                    </div>
+                </div>
+
+                @if (_activePhase == 1)
+                {
+                    <div class="builder-section-head">
+                        <div>
+                            <span class="eyebrow">@DisplayPhaseNumber(1).ToString("00") / @L("ConfiguratorPreview.Basis")</span>
+                            <h3>@L("ConfiguratorPreview.WhatDoYouNeedThePcFor")</h3>
+                        </div>
+                        <p>@L("ConfiguratorPreview.PreconfiguredButFullyCustomizable")</p>
+                    </div>
+                    <div class="preset-grid">
+                        @foreach (var preset in BuilderService.Presets)
+                        {
+                            <button @onclick="() => ApplyPreset(preset)"
+                                    type="button"
+                                    class="preset-card @(_activePreset == preset.Id ? "active" : null)">
+                                <span class="preset-icon"
+                                      aria-hidden="true">@preset.Icon</span>
+                                <span class="preset-content">
+                                    <strong>@PresetName(preset)</strong>
+                                    <small>@L(preset.DescriptionTranslationKey)</small>
+                                </span>
+                                <span class="preset-price">@(preset.StartingPrice > 0 ? $"{L("ConfiguratorPreview.From")} {Money(preset.StartingPrice)}" : L("ConfiguratorPreview.Custom"))</span>
+                            </button>
+                        }
+                    </div>
+                }
+
+                @if (_activePhase == 2)
+                {
+                    <div class="builder-section-head component-heading">
+                        <div>
+                            <span class="eyebrow">@DisplayPhaseNumber(2).ToString("00") / @L("ConfiguratorPreview.Components")</span>
+                            <h3 id="components-heading">@L("ConfiguratorPreview.ChooseYourComponents")</h3>
+                        </div>
+                        <span class="keyboard-hint">@L("ConfiguratorPreview.OnlyCompatiblePartsAreOffered")</span>
+                    </div>
+
+                    <div class="component-list">
+                        @foreach (var category in Categories)
+                        {
+                            var selected = BuilderService.GetSelected(_build, category);
+                            var usesIntegratedGraphics = category == BuilderCategory.Gpu
+                                && _build.GraphicsMode == BuildGraphicsMode.Integrated;
+                            var hasSelection = selected is not null || usesIntegratedGraphics;
+                            var isActive = _activeCategory == category;
+                            var isOptional = IsAccessory(category);
+                            @if (category == BuilderCategory.Monitor)
+                            {
+                                <div class="accessory-heading">
+                                    <div>
+                                        <span class="eyebrow">// @L("ConfiguratorPreview.OptionalAccessories")</span>
+                                        <h4>@L("ConfiguratorPreview.AddAccessories")</h4>
+                                    </div>
+                                </div>
+                            }
+                            <article id="component-@category"
+                                     class="step-card @(hasSelection ? "selected" : isOptional ? "optional" : "required-empty") @(isActive ? "active" : null)">
+                                <button class="step-card-main"
+                                        @onclick="() => ToggleCategory(category)"
+                                        type="button"
+                                        aria-expanded="@isActive"
+                                        aria-controls="options-@category">
+                                    <span class="step-number">@StepNumber(category).ToString("00")</span>
+                                    <span class="product-thumb">
+                                        @if (usesIntegratedGraphics)
+                                        {
+                                            <span aria-hidden="true">iGPU</span>
+                                        }
+                                        else if (selected is not null)
+                                        {
+                                            @if (!string.IsNullOrWhiteSpace(selected.Image))
+                                            {
+                                                <img src="@selected.Image" alt="" loading="lazy" />
+                                            }
+                                            else
+                                            {
+                                                <span aria-hidden="true">@CategoryIcon(category)</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span aria-hidden="true">@CategoryIcon(category)</span>
+                                        }
+                                    </span>
+                                    <span class="step-copy">
+                                        <span class="category-line">
+                                            <span>@CategoryName(category)</span>
+                                            @if (!hasSelection)
+                                            {
+                                                <em class="@(isOptional ? "optional-label" : null)">
+                                                    @(isOptional ? L("ConfiguratorPreview.Optional") : L("ConfiguratorPreview.Required"))
+                                                </em>
+                                            }
+                                        </span>
+                                        <strong>@(usesIntegratedGraphics ? L("ConfiguratorPreview.IntegratedGraphics") : selected?.Name ?? L("ConfiguratorPreview.NotSelectedYet"))</strong>
+                                        @if (usesIntegratedGraphics)
+                                        {
+                                            <span class="product-specs">@IntegratedGraphicsSummary</span>
+                                            <span class="part-status compatible">
+                                                <b aria-hidden="true">✓</b> @L("ConfiguratorPreview.FitsYourConfiguration")
+                                            </span>
+                                        }
+                                        else if (selected is not null)
+                                        {
+                                            <span class="product-specs">@string.Join(" · ", selected.Specs)</span>
+                                            <span class="part-status compatible">
+                                                <b aria-hidden="true">✓</b> @L("ConfiguratorPreview.FitsYourConfiguration")
+                                            </span>
+                                            <span class="delivery-status">@L("ConfiguratorPreview.DeliveryTime"): @DeliveryText(selected.Offer)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="product-helper">@CategoryHelper(category)</span>
+                                        }
+                                    </span>
+                                    <span class="step-action">
+                                        @if (usesIntegratedGraphics)
+                                        {
+                                            <strong>@Money(0)</strong>
+                                            <span>@L("ConfiguratorPreview.Change") <b aria-hidden="true">→</b></span>
+                                        }
+                                        else if (selected is not null)
+                                        {
+                                            <strong>@Money(selected.Price)</strong>
+                                            <span>@L("ConfiguratorPreview.Change") <b aria-hidden="true">→</b></span>
+                                        }
+                                        else
+                                        {
+                                            <strong>—</strong>
+                                            <span>@ChooseLabel(category) <b aria-hidden="true">→</b></span>
+                                        }
+                                    </span>
+                                </button>
+
+                                @if (isActive)
+                                {
+                                    var filterDefinitions = BuilderService.GetFilterDefinitions(category, _build);
+                                    var propertyFilterDefinitions = filterDefinitions
+                                        .Where(filter => category != BuilderCategory.Cpu || filter.Key != "socket")
+                                        .ToArray();
+                                    var compatibleProducts = BuilderService.GetCompatibleProducts(category, _build, _activeFilters, _activeSort);
+                                    <div id="options-@category"
+                                         class="step-options">
+                                        @if (category == BuilderCategory.Gpu)
+                                        {
+                                            <div class="row g-3 mb-4 graphics-mode-options">
+                                                <div class="col-12 col-md-6">
+                                                    <button type="button"
+                                                            class="btn w-100 h-100 text-start @(usesIntegratedGraphics ? "primary-button" : "secondary-button")"
+                                                            disabled="@(!BuilderService.CanUseIntegratedGraphics(_build))"
+                                                            @onclick="SelectIntegratedGraphics">
+                                                        <strong>@L("ConfiguratorPreview.UseIntegratedGraphics")</strong>
+                                                        <small>@IntegratedGraphicsOptionDescription</small>
+                                                    </button>
+                                                </div>
+                                                <div class="col-12 col-md-6">
+                                                    <button type="button"
+                                                            class="btn w-100 h-100 text-start @(!usesIntegratedGraphics ? "primary-button" : "secondary-button")"
+                                                            @onclick="SelectDiscreteGraphics">
+                                                        <strong>@L("ConfiguratorPreview.UseDedicatedGraphicsCard")</strong>
+                                                        <small>@L("ConfiguratorPreview.DedicatedGraphicsDescription")</small>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+                                        @if (isOptional && selected is not null)
+                                        {
+                                            <div class="option-toolbar">
+                                                <button class="clear-selection" @onclick="() => RemoveAccessory(category)" type="button">
+                                                    @L("ConfiguratorPreview.RemoveSelection")
+                                                </button>
+                                            </div>
+                                        }
+                                        <div class="filter-panel @(_filtersExpanded ? "expanded" : null)">
+                                            <div class="filter-panel-header">
+                                                <button class="filter-panel-toggle"
+                                                        type="button"
+                                                        aria-expanded="@_filtersExpanded"
+                                                        aria-controls="filters-@category"
+                                                        @onclick="ToggleFilters">
+                                                    <span>
+                                                        <strong>@L("ConfiguratorPreview.ProductFilters")</strong>
+                                                        <small>@FiltersSummary</small>
+                                                    </span>
+                                                </button>
+                                                <label class="sort-control filter-sort-control">
+                                                    <span>@L("ConfiguratorPreview.SortBy")</span>
+                                                    <select value="@_activeSort" @onchange="SetSort">
+                                                        <option value="@ProductSort.Recommended">@L("ConfiguratorPreview.SortRecommended")</option>
+                                                        <option value="@ProductSort.TopRank">@L("ConfiguratorPreview.SortTopRank")</option>
+                                                        <option value="@ProductSort.PriceAscending">@L("ConfiguratorPreview.SortPriceAscending")</option>
+                                                        <option value="@ProductSort.PriceDescending">@L("ConfiguratorPreview.SortPriceDescending")</option>
+                                                        <option value="@ProductSort.Name">@L("ConfiguratorPreview.SortName")</option>
+                                                    </select>
+                                                </label>
+                                            </div>
+                                            @if (_filtersExpanded)
+                                            {
+                                                <div id="filters-@category" class="property-filters" aria-label="@(L("ConfiguratorPreview.ProductFilters"))">
+                                                    @if (category == BuilderCategory.Cpu)
+                                                    {
+                                                        <div class="platform-filter" role="group" aria-label="@L("ConfiguratorPreview.Platform")">
+                                                            <span>@L("ConfiguratorPreview.Platform")</span>
+                                                            <div>
+                                                                <button type="button"
+                                                                        class="@(!_activeFilters.ContainsKey("socket") ? "active" : null)"
+                                                                        @onclick="ClearPlatformFilter">
+                                                                    @L("ConfiguratorPreview.All")
+                                                                </button>
+                                                                <button type="button"
+                                                                        class="@(IsFilterSelected("socket", "AM4") ? "active" : null)"
+                                                                        @onclick="FilterAm4">
+                                                                    AM4
+                                                                </button>
+                                                                <button type="button"
+                                                                        class="@(IsFilterSelected("socket", "AM5") ? "active" : null)"
+                                                                        @onclick="FilterAm5">
+                                                                    AM5
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                    @foreach (var filter in propertyFilterDefinitions)
+                                                    {
+                                                        <label>
+                                                            <span>@ProductText(filter.Label)</span>
+                                                            <select value="@SelectedFilter(filter.Key)"
+                                                                    @onchange="args => SetPropertyFilter(filter.Key, args)">
+                                                                <option value="">@L("ConfiguratorPreview.All")</option>
+                                                                @foreach (var value in filter.Values)
+                                                                {
+                                                                    <option value="@value">@ProductText(value)</option>
+                                                                }
+                                                            </select>
+                                                        </label>
+                                                    }
+                                                    @if (_activeFilters.Count > 0)
+                                                    {
+                                                        <button type="button" class="clear-filters" @onclick="ClearFilters">
+                                                            @L("ConfiguratorPreview.ClearFilters")
+                                                        </button>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="product-option-grid">
+                                            @if (!_catalogError && compatibleProducts.Count == 0)
+                                            {
+                                                <div class="catalog-empty">@L("ConfiguratorPreview.NoCompatibleOffersForCategory")</div>
+                                            }
+                                            @foreach (var product in compatibleProducts)
+                                            {
+                                                <div class="product-option @(selected?.Id == product.Id ? "current" : null)"
+                                                     role="button"
+                                                     tabindex="0"
+                                                     title="@L("ConfiguratorPreview.ShowSpecifications")"
+                                                     @onclick="() => ShowSpecifications(product)"
+                                                     @onkeydown="args => InspectProductFromKeyboard(args, product)">
+                                                    <div class="option-image">
+                                                        @if (!string.IsNullOrWhiteSpace(product.Image))
+                                                        {
+                                                            <img src="@product.Image" alt="" loading="lazy" />
+                                                        }
+                                                        else
+                                                        {
+                                                            <span aria-hidden="true">@CategoryIcon(category)</span>
+                                                        }
+                                                    </div>
+                                                    <div class="option-copy">
+                                                        <div class="option-badges">
+                                                            @foreach (var badge in product.Badges)
+                                                            {
+                                                                <span>@L(badge)</span>
+                                                            }
+                                                        </div>
+                                                        <small>@product.Brand</small>
+                                                        <strong>@product.Name</strong>
+                                                        <span>@string.Join(" · ", product.Specs)</span>
+                                                    </div>
+                                                    <div class="option-price">
+                                                        <span>
+                                                            <strong>@Money(product.Price)</strong>
+                                                        </span>
+                                                        <span class="offer-delivery">@DeliveryText(product.Offer)</span>
+                                                    </div>
+                                                    <button class="btn option-select"
+                                                            @onclick="() => SelectProduct(product)"
+                                                            @onclick:stopPropagation="true"
+                                                            @onkeydown:stopPropagation="true"
+                                                            type="button"
+                                                            disabled="@(selected?.Id == product.Id)">
+                                                        @(selected?.Id == product.Id ? L("ConfiguratorPreview.Selected") : L("ConfiguratorPreview.Select"))
+                                                    </button>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </article>
+                        }
+                    </div>
+                }
+
+                @if (_activePhase == 3)
+                {
+                    <div class="services-hero">
+                        <span class="eyebrow">@DisplayPhaseNumber(3).ToString("00") / @L("ConfiguratorPreview.PcWerkServicesUppercase")</span>
+                        <h3 id="services-heading">@L("ConfiguratorPreview.HowShouldWeFinishYourPc")</h3>
+                        <p>@L("ConfiguratorPreview.YouChooseTheServiceScopeWeTakeCareOfTheRest")</p>
+                    </div>
+
+                    <section class="order-type-section"
+                             aria-labelledby="order-type-title">
+                        <div class="service-section-title">
+                            <span class="eyebrow">@L("ConfiguratorPreview.FirstDecision")</span>
+                            <h4 id="order-type-title">@L("ConfiguratorPreview.WhatShouldWeDoForYou")</h4>
+                        </div>
+                        <div class="row g-3 order-type-grid">
+                            <div class="col-12 col-lg-6">
+                                <button @onclick="ChooseComponentsOnly"
+                                        type="button"
+                                        class="order-type-card @(_build.OrderType == BuildOrderType.ComponentsOnly ? "active" : null)">
+                                    <span class="order-type-kicker">@L("ConfiguratorPreview.ComponentsOnly")</span>
+                                    <strong>@L("ConfiguratorPreview.YouBuildItYourself")</strong>
+                                    <span class="order-type-copy">@L("ConfiguratorPreview.WeDeliverTheSelectedComponentsYouHandleAssemblyAndSetup")</span>
+                                    <span class="order-type-price">
+                                        @Money(BuilderService.CompatibilityCheckPrice) <small>@L("ConfiguratorPreview.Service")</small>
+                                    </span>
+                                    <span class="card-cta">@L("ConfiguratorPreview.BuildItYourself") →</span>
+                                </button>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <button @onclick="ChoosePcWerkBuild"
+                                        type="button"
+                                        class="order-type-card pcwerk-choice @(_build.OrderType == BuildOrderType.PcWerkBuild ? "active" : null)">
+                                    <span class="recommended-badge">@L("ConfiguratorPreview.Recommended")</span>
+                                    <span class="order-type-kicker">@L("ConfiguratorPreview.PcWerkBuild")</span>
+                                    <strong>@L("ConfiguratorPreview.WeBuildYourPc")</strong>
+                                    <span class="order-type-copy">@L("ConfiguratorPreview.WeAssembleConfigureAndTestYourPcToTheExtentYouChoose")</span>
+                                    <span class="order-type-price">@L("ConfiguratorPreview.From") @Money(BuilderService.PcWerkBuildStartingPrice)</span>
+                                    <span class="card-cta">@L("ConfiguratorPreview.ChoosePcWerkBuild") →</span>
+                                </button>
+                            </div>
+                        </div>
+                        @if (_build.OrderType is null)
+                        {
+                            <p class="neutral-choice-note">@L("ConfiguratorPreview.NoPaidOptionIsPreselected")</p>
+                        }
+                    </section>
+
+                    @if (_build.OrderType == BuildOrderType.PcWerkBuild)
+                    {
+                        <section id="service-packages"
+                                 class="package-section"
+                                 aria-labelledby="packages-title">
+                            <div class="service-section-title">
+                                <span class="eyebrow">@L("ConfiguratorPreview.ServicePackages")</span>
+                                <h4 id="packages-title">@L("ConfiguratorPreview.HowMuchShouldWeHandle")</h4>
+                            </div>
+                            <div class="row g-3 align-items-stretch package-grid">
+                                @for (var index = 0; index < BuilderService.ServicePackages.Count; index++)
+                                {
+                                    var package = BuilderService.ServicePackages[index];
+                                    var included = PackageServices(package).ToArray();
+                                    var expanded = _expandedPackages.Contains(package.Id);
+                                    <div class="col-12 col-xl-4 d-flex">
+                                        <article class="service-package-card @(package.Recommended ? "featured" : null) @(_build.ServicePackage?.Id == package.Id ? "selected" : null)">
+                                            <div class="package-card-head">
+                                                <span class="service-index">@L("ConfiguratorPreview.Service").ToUpperInvariant() @((index + 1).ToString("00"))</span>
+                                                @if (package.Recommended)
+                                                {
+                                                    <span class="recommended-badge">@L("ConfiguratorPreview.Recommended")</span>
+                                                }
+                                            </div>
+                                            <h5>@PackageName(package)</h5>
+                                            <p>@PackageDescription(package)</p>
+                                            <strong class="package-price">@Money(package.Price)</strong>
+                                            <span class="package-outcome">@PackageOutcome(package)</span>
+                                            <ul class="package-benefits">
+                                                @foreach (var service in (expanded ? included : included.Take(5)))
+                                                {
+                                                    <li><span aria-hidden="true">✓</span>@ServiceName(service)</li>
+                                                }
+                                            </ul>
+                                            @if (included.Length > 5)
+                                            {
+                                                <button class="show-services"
+                                                        @onclick="() => TogglePackageDetails(package.Id)"
+                                                        type="button"
+                                                        aria-expanded="@expanded">
+                                                    @(expanded ? L("ConfiguratorPreview.ShowLess") : $"{L("ConfiguratorPreview.ShowAllServices")} · + {included.Length - 5}")
+                                                </button>
+                                            }
+                                            <button @onclick="() => SelectPackage(package)"
+                                                    type="button"
+                                                    class="btn package-select @(_build.ServicePackage?.Id == package.Id ? "selected" : null)">
+                                                @(_build.ServicePackage?.Id == package.Id ? L("ConfiguratorPreview.SelectedUppercase") : $"{PackageCta(package)} →")
+                                            </button>
+                                        </article>
+                                    </div>
+                                }
+                            </div>
+                        </section>
+
+                        @if (_build.ServicePackage is not null)
+                        {
+                            <section class="addons-section"
+                                     aria-labelledby="addons-title">
+                                <div class="service-section-title">
+                                    <span class="eyebrow">@L("ConfiguratorPreview.FineTuning")</span>
+                                    <h4 id="addons-title">@L("ConfiguratorPreview.OptionalServicesUppercase")</h4>
+                                    <p>@L("ConfiguratorPreview.AddOnlyWhatYouNeedIncludedServicesAreNeverChargedTwice")</p>
+                                </div>
+                                <div class="row g-3 addon-grid">
+                                    @if (OperatingSystemServices.Length > 0)
+                                    {
+                                        var hasSelectedOperatingSystem = OperatingSystemServices.Any(service => BuilderService.IsAddonSelected(_build, service.Id));
+                                        <div class="col-12">
+                                            <article class="addon-card operating-system-card @(hasSelectedOperatingSystem ? "selected" : null)">
+                                                <div class="addon-copy">
+                                                    <span>@L("ServiceCategory.Setup")</span>
+                                                    <h5>@L("ConfiguratorPreview.WindowsInstallation")</h5>
+                                                    <p>@L("ConfiguratorPreview.ChooseYourOperatingSystem")</p>
+                                                </div>
+                                                <div class="operating-system-options" aria-label="@(L("ConfiguratorPreview.WindowsInstallation"))">
+                                                    <button class="operating-system-option @(!hasSelectedOperatingSystem ? "selected" : null)"
+                                                            type="button"
+                                                            aria-pressed="@(!hasSelectedOperatingSystem)"
+                                                            @onclick="ClearOperatingSystem">
+                                                        <span>
+                                                            <strong>@L("ConfiguratorPreview.NoOperatingSystem")</strong>
+                                                            <small>@L("ConfiguratorPreview.NoOperatingSystemDescription")</small>
+                                                        </span>
+                                                        <b>@Money(0)</b>
+                                                    </button>
+                                                    @foreach (var service in OperatingSystemServices.Where(service => !service.Id.StartsWith("os-windows-", StringComparison.OrdinalIgnoreCase)))
+                                                    {
+                                                        var selected = BuilderService.IsAddonSelected(_build, service.Id);
+                                                        var price = BuilderService.GetAddonPrice(_build, service);
+                                                        <button class="operating-system-option @(selected ? "selected" : null)"
+                                                                type="button"
+                                                                aria-pressed="@selected"
+                                                                @onclick="() => ToggleAddon(service)">
+                                                            <span>
+                                                                <strong>@ServiceName(service)</strong>
+                                                                <small>@ServiceDescription(service)</small>
+                                                            </span>
+                                                            <b>@(price == 0 ? L("ConfiguratorPreview.IncludedInYourPackage") : $"+ {Money(price)}")</b>
+                                                        </button>
+                                                    }
+                                                    @foreach (var edition in WindowsEditions)
+                                                    {
+                                                        var services = new[]
+                                                        {
+                                                            OperatingSystemServices.First(service => service.Id == edition.WithoutActivationServiceId),
+                                                            OperatingSystemServices.First(service => service.Id == edition.ActivatedServiceId),
+                                                        };
+                                                        var editionSelected = services.Any(service => BuilderService.IsAddonSelected(_build, service.Id));
+                                                        <div class="operating-system-option windows-system-option @(editionSelected ? "selected" : null)">
+                                                            <span>
+                                                                <strong>@L(edition.NameTranslationKey)</strong>
+                                                                <small>@L("ConfiguratorPreview.ChooseActivationOption")</small>
+                                                            </span>
+                                                            <div class="activation-options">
+                                                                @foreach (var service in services)
+                                                                {
+                                                                    var selected = BuilderService.IsAddonSelected(_build, service.Id);
+                                                                    var price = BuilderService.GetAddonPrice(_build, service);
+                                                                    var activationLabel = service.Id == edition.ActivatedServiceId
+                                                                        ? L("ConfiguratorPreview.WithActivation")
+                                                                        : L("ConfiguratorPreview.WithoutActivation");
+                                                                    <button class="activation-option @(selected ? "selected" : null)"
+                                                                            type="button"
+                                                                            aria-pressed="@selected"
+                                                                            @onclick="() => ToggleAddon(service)">
+                                                                        <span>@activationLabel</span>
+                                                                        <b>@(price == 0 ? L("ConfiguratorPreview.IncludedInYourPackage") : Money(price))</b>
+                                                                    </button>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </article>
+                                        </div>
+                                    }
+                                    @foreach (var service in BuilderService.OptionalServices.Where(service => service.SelectionGroup is null))
+                                    {
+                                        var included = BuilderService.IsIncludedInSelectedPackage(_build, service.Id);
+                                        var selected = BuilderService.IsAddonSelected(_build, service.Id);
+                                        <div class="col-12 col-md-6">
+                                            <article class="addon-card @(included ? "included" : null) @(selected ? "selected" : null)">
+                                                <div class="addon-copy">
+                                                    <span>@ServiceCategory(service)</span>
+                                                    <h5>@ServiceName(service)</h5>
+                                                    <p>@ServiceDescription(service)</p>
+                                                    @if (!string.IsNullOrWhiteSpace(ServiceAvailability(service)))
+                                                    {
+                                                        <small>@ServiceAvailability(service)</small>
+                                                    }
+                                                </div>
+                                                <div class="addon-action">
+                                                    @if (included)
+                                                    {
+                                                        <strong class="included-label">✓ @L("ConfiguratorPreview.IncludedInYourPackage")</strong>
+                                                    }
+                                                    else
+                                                    {
+                                                        <strong>@(service.IsFromPrice ? L("ConfiguratorPreview.FromWithTrailingSpace") : "+ ")@Money(BuilderService.GetAddonPrice(_build, service))</strong>
+                                                        <button class="addon-switch @(selected ? "on" : null)"
+                                                                type="button"
+                                                                role="switch"
+                                                                aria-checked="@selected"
+                                                                aria-label="@ServiceName(service)"
+                                                                @onclick="() => ToggleAddon(service)">
+                                                            <span></span>
+                                                        </button>
+                                                    }
+                                                </div>
+                                            </article>
+                                        </div>
+                                    }
+                                </div>
+                            </section>
+                        }
+                    }
+
+                    <div class="phase-actions split-actions">
+                        <button class="btn secondary-button" type="button" @onclick="() => GoToPhase(2)">
+                            ← @L("ConfiguratorPreview.ComponentsUppercase")
+                        </button>
+                    </div>
+                }
+
+                @if (_activePhase == 4)
+                {
+                    <section class="review-screen"
+                             aria-labelledby="review-title">
+                        <span class="eyebrow">@DisplayPhaseNumber(4).ToString("00") / @L("ConfiguratorPreview.PcWerkBuildReview")</span>
+                        <h3 id="review-title">@L("ConfiguratorPreview.YourConfiguration")</h3>
+                        <div class="review-compatible">
+                            <span aria-hidden="true">✓</span>
+                            <div>
+                                <strong>@L("ConfiguratorPreview.AllComponentsAreAutomaticallyCompatibilityChecked")</strong>
+                                <small>@L("ConfiguratorPreview.AManualPcWerkFinalVerificationIsShownSeparatelyAsAService")</small>
+                            </div>
+                        </div>
+                        <div class="review-section-head">
+                            <div>
+                                <span class="eyebrow">@L("ConfiguratorPreview.YourHardware")</span>
+                                <h4>@L("ConfiguratorPreview.YourHardwareUppercase")</h4>
+                            </div>
+                            <button type="button" @onclick="() => GoToPhase(2)">
+                                @L("ConfiguratorPreview.ChangeHardware") →
+                            </button>
+                        </div>
+                        <div class="review-parts">
+                            @foreach (var category in Categories)
+                            {
+                                var item = BuilderService.GetSelected(_build, category);
+                                if (category == BuilderCategory.Gpu && _build.GraphicsMode == BuildGraphicsMode.Integrated)
+                                {
+                                    <div>
+                                        <span class="review-part-icon" aria-hidden="true">iGPU</span>
+                                        <span>
+                                            <small>@CategoryName(category)</small>
+                                            <strong>@L("ConfiguratorPreview.IntegratedGraphics")</strong>
+                                            <em>@IntegratedGraphicsSummary</em>
+                                        </span>
+                                        <b>@Money(0)</b>
+                                    </div>
+                                    continue;
+                                }
+                                if (item is null)
+                                {
+                                    continue;
+                                }
+                                <div>
+                                    @if (!string.IsNullOrWhiteSpace(item.Image))
+                                    {
+                                        <img src="@item.Image" alt="" />
+                                    }
+                                    else
+                                    {
+                                        <span class="review-part-icon" aria-hidden="true">@CategoryIcon(category)</span>
+                                    }
+                                    <span>
+                                        <small>@CategoryName(category)</small>
+                                        <strong>@item.Name</strong>
+                                        <em>@DeliveryText(item.Offer)</em>
+                                    </span>
+                                    <b>@Money(item.Price)</b>
+                                </div>
+                            }
+                        </div>
+                        <div class="review-section-head">
+                            <div>
+                                <span class="eyebrow">@L("ConfiguratorPreview.PcWerkServices")</span>
+                                <h4>@L("ConfiguratorPreview.YourPcWerkService")</h4>
+                            </div>
+                            <button type="button" @onclick="() => GoToPhase(3)">
+                                @L("ConfiguratorPreview.ChangeService") →
+                            </button>
+                        </div>
+                        @if (_build.OrderType == BuildOrderType.ComponentsOnly)
+                        {
+                            <div class="review-service-empty">
+                                <strong>@L("ConfiguratorPreview.NoAssemblySelected")</strong>
+                                <span>@Money(BuilderService.CompatibilityCheckPrice) @L("ConfiguratorPreview.Service")</span>
+                                <p>@L("ConfiguratorPreview.WouldYouLikeToReceiveThePcFullyAssembled")</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="review-service-selected">
+                                <div>
+                                    <strong>@PackageName(_build.ServicePackage!)</strong>
+                                    <span>@PackageOutcome(_build.ServicePackage!)</span>
+                                </div>
+                                <b>@Money(Pricing.ServicePackagePrice)</b>
+                            </div>
+                            @foreach (var addon in _build.ServiceAddons)
+                            {
+                                <div class="review-addon">
+                                    <span>
+                                        <small>@L("ConfiguratorPreview.OptionalService")</small>
+                                        <strong>@ServiceName(addon)</strong>
+                                    </span>
+                                    <b>@Money(BuilderService.GetAddonPrice(_build, addon))</b>
+                                </div>
+                            }
+                        }
+                        <div class="review-pricing">
+                            <h4>@L("ConfiguratorPreview.TotalPriceUppercase")</h4>
+                            <dl>
+                                <div>
+                                    <dt>@L("ConfiguratorPreview.Hardware")</dt>
+                                    <dd>@Money(Pricing.HardwareSubtotal)</dd>
+                                </div>
+                                <div>
+                                    <dt>@L("ConfiguratorPreview.PcWerkServices")</dt>
+                                    <dd>@Money(Pricing.ServicePackagePrice + Pricing.AddonsTotal)</dd>
+                                </div>
+                                <div>
+                                    <dt>@L("ConfiguratorPreview.Delivery")</dt>
+                                    <dd>@Money(Pricing.DeliveryPrice)</dd>
+                                </div>
+                                @if (Delivery is not null)
+                                {
+                                    <div>
+                                        <dt>@L("ConfiguratorPreview.DeliveryTime")</dt>
+                                        <dd>@DeliveryText(Delivery)</dd>
+                                    </div>
+                                }
+                                <div class="grand-total">
+                                    <dt>@L("ConfiguratorPreview.TotalPrice")</dt>
+                                    <dd>@Money(Pricing.Total)</dd>
+                                </div>
+                            </dl>
+                        </div>
+                        <div class="phase-actions split-actions">
+                            <button class="btn secondary-button" type="button" @onclick="() => GoToPhase(3)">
+                                ← @L("ConfiguratorPreview.ChangeService")
+                            </button>
+                            <button class="btn primary-button" type="button" @onclick="AddToCart">
+                                @L("ConfiguratorPreview.ContinueToCheckout") →
+                            </button>
+                        </div>
+                    </section>
+                }
+
+                @if (_activePhase < 4)
+                {
+                    <div class="build-summary">
+                        <div class="summary-breakdown">
+                            <div>
+                                <small>@L("ConfiguratorPreview.Hardware")</small>
+                                <strong>@Money(Pricing.HardwareSubtotal)</strong>
+                            </div>
+                            <div>
+                                <small>@ServiceSummaryLabel</small>
+                                <strong>@Money(Pricing.ServicePackagePrice)</strong>
+                            </div>
+                            <div>
+                                <small>@L("ConfiguratorPreview.OptionalServices")</small>
+                                <strong>@Money(Pricing.AddonsTotal)</strong>
+                            </div>
+                        </div>
+                        <div class="summary-price">
+                            <small>@L("ConfiguratorPreview.EstimatedTotal")</small>
+                            <strong>@Money(Pricing.Total)</strong>
+                        </div>
+                        <div class="build-review">
+                            @if (_activePhase == 2)
+                            {
+                                <button class="btn primary-button"
+                                        type="button"
+                                        disabled="@(!IsHardwareComplete)"
+                                        @onclick="() => GoToPhase(3)">
+                                    @L("ConfiguratorPreview.ChooseServices") →
+                                </button>
+                                @if (!IsHardwareComplete)
+                                {
+                                    <small>@MissingInstruction</small>
+                                }
+                            }
+                            else
+                            {
+                                <button class="btn primary-button" type="button" disabled="@(!CanReview)" @onclick="OpenReview">
+                                    @L("ConfiguratorPreview.ReviewConfiguration") →
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <div class="build-utilities">
+                    <button type="button" @onclick="SaveBuild">@L("ConfiguratorPreview.SaveConfiguration")</button>
+                    <button type="button" @onclick="ShareBuild">@L("ConfiguratorPreview.ShareConfiguration")</button>
+                    <button class="reset-action" type="button" @onclick="ResetBuild">@L("ConfiguratorPreview.Reset")</button>
+                    @if (!string.IsNullOrEmpty(_feedback))
+                    {
+                        <span class="utility-feedback" role="status">✓ @_feedback</span>
+                    }
+                </div>
+                <p class="price-note">@L("ConfiguratorPreview.ComponentPricesAndDeliveryTimesComeFromTheDatabase")</p>
+        </div>
+    </div>
+
+    <div class="mobile-build-bar">
+        <div>
+            <strong>@Money(Pricing.Total)</strong>
+            <span>Hardware @Money(Pricing.HardwareSubtotal) · Services @Money(Pricing.ServicePackagePrice + Pricing.AddonsTotal)</span>
+        </div>
+        @if (_activePhase == 2)
+        {
+            <button class="btn primary-button" type="button" disabled="@(!IsHardwareComplete)" @onclick="() => GoToPhase(3)">
+                @L("ConfiguratorPreview.ChooseServices") →
+            </button>
+        }
+        else
+        {
+            <button class="btn primary-button" type="button" disabled="@(!CanReview)" @onclick="OpenReview">
+                @L("ConfiguratorPreview.Review") →
+            </button>
+        }
+    </div>
+</div>
+
+@if (_inspectedProduct is not null)
+{
+    <div class="specification-overlay" role="presentation" @onclick="CloseSpecifications">
+        <article class="specification-card"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="specification-title"
+                 @onclick:stopPropagation="true">
+            <header>
+                <div>
+                    <small>@CategoryName(_inspectedProduct.Category) · #@_inspectedProduct.TopRank @L("ProductSpecifications.PopularityRank")</small>
+                    <h3 id="specification-title">@_inspectedProduct.Name</h3>
+                    <span>@_inspectedProduct.Brand</span>
+                </div>
+                <button type="button" aria-label="@L("ConfiguratorPreview.Close")" @onclick="CloseSpecifications">×</button>
+            </header>
+            <div class="specification-content">
+                <div class="specification-product">
+                    <div class="specification-image">
+                        <img src="@_inspectedProduct.Image" alt="" />
+                    </div>
+                    <strong>@Money(_inspectedProduct.Price)</strong>
+                    <span>@DeliveryText(_inspectedProduct.Offer)</span>
+                </div>
+                <div class="specification-table">
+                    <h4>@L("ConfiguratorPreview.TechnicalSpecifications")</h4>
+                    <dl>
+                        @foreach (var detail in _inspectedProduct.SpecificationDetails ?? [])
+                        {
+                            <div>
+                                <dt>@ProductText(detail.Label)</dt>
+                                <dd>@ProductText(detail.Value)</dd>
+                            </div>
+                        }
+                    </dl>
+                </div>
+            </div>
+            <footer>
+                <button type="button" class="btn secondary-button" @onclick="CloseSpecifications">
+                    @L("ConfiguratorPreview.Close")
+                </button>
+                <button type="button"
+                        class="btn primary-button"
+                        disabled="@(BuilderService.GetSelected(_build, _inspectedProduct.Category)?.Id == _inspectedProduct.Id)"
+                        @onclick="SelectInspectedProduct">
+                    @(BuilderService.GetSelected(_build, _inspectedProduct.Category)?.Id == _inspectedProduct.Id
+                        ? L("ConfiguratorPreview.Selected")
+                        : L("ConfiguratorPreview.Select"))
+                </button>
+            </footer>
+        </article>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    [Parameter]
+    public long? CatalogPresetId { get; set; }
+
+    private sealed record FlowPhase(int Number, string TranslationKey);
+
+    private static readonly FlowPhase[] Phases =
+    [
+        new(1, "ConfiguratorPreview.Basis"),
+        new(2, "ConfiguratorPreview.Components"),
+        new(3, "ConfiguratorPreview.Services"),
+        new(4, "ConfiguratorPreview.Review"),
+    ];
+    private bool HasPresetChoice => BuilderService.Presets.Count > 1;
+    private IReadOnlyList<FlowPhase> VisiblePhases => HasPresetChoice ? Phases : Phases[1..];
+    private static readonly BuilderCategory[] Categories = Enum.GetValues<BuilderCategory>();
+    private BuilderBuild _build = new();
+    private BuilderCategory? _activeCategory;
+    private readonly Dictionary<string, string> _activeFilters = new(StringComparer.OrdinalIgnoreCase);
+    private ProductSort _activeSort = ProductSort.PriceAscending;
+    private bool _filtersExpanded;
+    private BuilderProduct? _inspectedProduct;
+    private string? _activePreset = null;
+    private string? _feedback;
+    private readonly HashSet<string> _expandedPackages = [];
+    private int _activePhase = 1;
+    private bool _catalogLoading = true;
+    private bool _catalogError;
+    private bool _initialBuildLoaded;
+    private long? _loadedCatalogPresetId;
+    private string? _elementToScroll;
+    private readonly string _sessionCode = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+
+    private BuildStatus Status => BuilderService.Evaluate(_build);
+    private BuildPricing Pricing => BuilderService.CalculatePricing(_build);
+    private Service[] OperatingSystemServices => BuilderService.OptionalServices
+        .Where(service => service.SelectionGroup == PcBuilderService.OperatingSystemSelectionGroup)
+        .ToArray();
+    private sealed record WindowsEdition(
+        string NameTranslationKey,
+        string WithoutActivationServiceId,
+        string ActivatedServiceId);
+    private static readonly WindowsEdition[] WindowsEditions =
+    [
+        new("ConfiguratorPreview.Windows11HomeEdition", "os-windows-home", "os-windows-home-activated"),
+        new("ConfiguratorPreview.Windows11ProEdition", "os-windows-pro", "os-windows-pro-activated"),
+    ];
+    private BuildDeliveryEstimate? Delivery => BuilderService.CalculateDelivery(_build);
+    private bool IsHardwareComplete =>
+        Status.SelectedCount == Status.RequiredCount && Status.IsCompatible;
+    private bool IsServiceDecisionComplete =>
+        _build.OrderType == BuildOrderType.ComponentsOnly
+        || (_build.OrderType == BuildOrderType.PcWerkBuild && _build.ServicePackage is not null);
+    private bool CanReview => IsHardwareComplete && IsServiceDecisionComplete;
+    private string IntegratedGraphicsSummary => string.Join(" · ", new[]
+    {
+        _build.Cpu?.Name,
+        _build.Motherboard?.Compatibility.VideoOutputs is { Count: > 0 } outputs
+            ? string.Join(" + ", outputs.Select(x => x.DisplayName))
+            : null
+    }.Where(x => !string.IsNullOrWhiteSpace(x)));
+    private string IntegratedGraphicsOptionDescription => _build.Cpu is null
+        ? L("ConfiguratorPreview.SelectCpuWithIntegratedGraphicsFirst")
+        : _build.Cpu.Compatibility.HasIntegratedGraphics != true
+            ? L("ConfiguratorPreview.SelectedCpuHasNoIntegratedGraphics")
+            : _build.Motherboard is not null && _build.Motherboard.Compatibility.VideoOutputs is not { Count: > 0 }
+                ? L("ConfiguratorPreview.SelectedMotherboardHasNoVideoOutput")
+                : L("ConfiguratorPreview.IntegratedGraphicsDescription");
+    private string CurrentPhaseName =>
+        L(Phases[_activePhase - 1].TranslationKey).ToUpperInvariant();
+    private int CurrentPhasePosition => DisplayPhaseNumber(_activePhase);
+    private string ServiceSummaryLabel =>
+        _build.OrderType switch
+        {
+            BuildOrderType.ComponentsOnly => L("ConfiguratorPreview.NoAssembly"),
+            BuildOrderType.PcWerkBuild when _build.ServicePackage is not null => PackageName(
+                _build.ServicePackage
+            ),
+            _ => L("ConfiguratorPreview.PcWerkServices"),
+        };
+    private string MissingText =>
+        Status.MissingComponents.Count switch
+        {
+            0 => L("ConfiguratorPreview.HardwareComplete"),
+            1 => L("ConfiguratorPreview.OneComponentMissing"),
+            _ => $"{Status.MissingComponents.Count} {L("ConfiguratorPreview.ComponentsMissing")}",
+        };
+    private string ReviewInstruction =>
+        !IsHardwareComplete ? MissingInstruction : L("ConfiguratorPreview.ChooseComponentsOnlyOrPcWerkBuild");
+    private string MissingInstruction =>
+        Status.MissingComponents.Count == 0
+            ? string.Empty
+            : $"{L("ConfiguratorPreview.ChooseRemainingComponents")} {NaturalList(Status.MissingComponents.Select(CategoryName).ToArray())}.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await BuilderService.InitializeAsync();
+            _build = BuilderService.ApplyPreset("scratch");
+            _activePhase = HasPresetChoice ? 1 : 2;
+            _activeCategory = HasPresetChoice ? null : BuilderCategory.Cpu;
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Nie udało się zainicjalizować katalogu konfiguratora.");
+            _catalogError = true;
+            _build = BuilderService.CreateInitialBuild();
+        }
+        finally
+        {
+            _catalogLoading = false;
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_catalogLoading
+            || _catalogError
+            || CatalogPresetId is not { } presetId
+            || _loadedCatalogPresetId == presetId)
+        {
+            return;
+        }
+
+        try
+        {
+            _loadedCatalogPresetId = presetId;
+            var preset = await PresetCatalog.GetAvailablePresetAsync(presetId);
+            if (preset is null)
+            {
+                _feedback = L("ConfiguratorPreview.PresetUnavailable");
+                return;
+            }
+
+            _build = BuilderService.ApplyCatalogPreset(preset);
+            BuilderService.SetOrderType(_build, BuildOrderType.PcWerkBuild);
+            _initialBuildLoaded = true;
+            _activePreset = null;
+            _activeCategory = null;
+            ResetProductView();
+            _activePhase = 2;
+            _feedback = $"{preset.Name} {L("ConfiguratorPreview.Loaded")}";
+            _elementToScroll = "components-heading";
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Nie udało się załadować presetu {PresetId} do konfiguratora.", presetId);
+            _feedback = L("ConfiguratorPreview.PresetUnavailable");
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_catalogLoading && !_catalogError && !_initialBuildLoaded)
+        {
+            _initialBuildLoaded = true;
+            var serialized = await JS.InvokeAsync<string?>("pcBuilder.loadInitialBuild");
+            if (!string.IsNullOrWhiteSpace(serialized))
+            {
+                _build = BuilderService.Deserialize(serialized);
+                _activePreset = Status.SelectedCount == 0 ? "scratch" : null;
+                _feedback = L("ConfiguratorPreview.SavedConfigurationLoaded");
+                StateHasChanged();
+            }
+        }
+
+        if (_elementToScroll is { } elementToScroll)
+        {
+            _elementToScroll = null;
+            await JS.InvokeVoidAsync("pcBuilder.scrollToElement", elementToScroll);
+        }
+    }
+
+    private string L(string key) => Translations.Translate(Language, key);
+
+    private static string Money(decimal value) =>
+        $"CHF {value.ToString("#,0", System.Globalization.CultureInfo.InvariantCulture).Replace(",", "'")}.–";
+
+    private string DeliveryText(ProductOffer offer) =>
+        DeliveryText(new BuildDeliveryEstimate(offer.DeliveryMinBusinessDays, offer.DeliveryMaxBusinessDays));
+
+    private string DeliveryText(BuildDeliveryEstimate delivery) =>
+        delivery.MinBusinessDays == delivery.MaxBusinessDays
+            ? $"{delivery.MinBusinessDays} {L("ConfiguratorPreview.BusinessDays")}"
+            : $"{delivery.MinBusinessDays}–{delivery.MaxBusinessDays} {L("ConfiguratorPreview.BusinessDays")}";
+
+    private static int StepNumber(BuilderCategory category) =>
+        Array.IndexOf(Categories, category) + 1;
+
+    private int DisplayPhaseNumber(int phase) =>
+        Array.FindIndex(VisiblePhases.ToArray(), item => item.Number == phase) + 1;
+
+    private bool CanOpenPhase(int phase) =>
+        phase <= 2
+        || (phase == 3 && IsHardwareComplete)
+        || (phase == 4 && CanReview);
+
+    private void GoToPhase(int phase)
+    {
+        if (CanOpenPhase(phase))
+        {
+            _activePhase = phase;
+            _activeCategory = null;
+            _feedback = null;
+            if (phase == 3)
+            {
+                _elementToScroll = "services-heading";
+            }
+        }
+    }
+
+    private void ToggleCategory(BuilderCategory category)
+    {
+        var opensCategory = _activeCategory != category;
+        _activeCategory = opensCategory ? category : null;
+        _elementToScroll = opensCategory ? $"component-{category}" : null;
+        ResetProductView();
+        _feedback = null;
+    }
+
+    private string SelectedFilter(string key) => _activeFilters.GetValueOrDefault(key) ?? string.Empty;
+
+    private string FiltersSummary => _activeFilters.Count == 0
+        ? L("ConfiguratorPreview.All")
+        : string.Join(" · ", _activeFilters.Values.Select(ProductText));
+
+    private bool IsFilterSelected(string key, string value) =>
+        _activeFilters.TryGetValue(key, out var selected)
+        && selected.Equals(value, StringComparison.OrdinalIgnoreCase);
+
+    private void SetQuickFilter(string key, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            _activeFilters.Remove(key);
+        else
+            _activeFilters[key] = value;
+    }
+
+    private void ClearPlatformFilter() => SetQuickFilter("socket", null);
+    private void FilterAm4() => SetQuickFilter("socket", "AM4");
+    private void FilterAm5() => SetQuickFilter("socket", "AM5");
+
+    private void SetPropertyFilter(string key, ChangeEventArgs args)
+    {
+        var value = args.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(value))
+            _activeFilters.Remove(key);
+        else
+            _activeFilters[key] = value;
+    }
+
+    private void ClearFilters() => _activeFilters.Clear();
+
+    private void ToggleFilters() => _filtersExpanded = !_filtersExpanded;
+
+    private void SetSort(ChangeEventArgs args)
+    {
+        if (Enum.TryParse<ProductSort>(args.Value?.ToString(), out var sort))
+            _activeSort = sort;
+    }
+
+    private void ResetProductView()
+    {
+        _activeFilters.Clear();
+        _activeSort = ProductSort.PriceAscending;
+        _filtersExpanded = false;
+    }
+
+    private void ShowSpecifications(BuilderProduct product) => _inspectedProduct = product;
+    private void InspectProductFromKeyboard(KeyboardEventArgs args, BuilderProduct product)
+    {
+        if (args.Key is "Enter" or " ")
+            ShowSpecifications(product);
+    }
+    private void CloseSpecifications() => _inspectedProduct = null;
+
+    private void SelectInspectedProduct()
+    {
+        if (_inspectedProduct is not null)
+            SelectProduct(_inspectedProduct);
+        _inspectedProduct = null;
+    }
+
+    private void SelectProduct(BuilderProduct product)
+    {
+        BuilderService.Select(_build, product);
+        _activePreset = null;
+        _feedback = L("ConfiguratorPreview.SelectionUpdated");
+        var missingComponents = Status.MissingComponents;
+        _activeCategory = missingComponents.Count == 0 ? null : missingComponents[0];
+        _elementToScroll = $"component-{_activeCategory ?? product.Category}";
+        ResetProductView();
+    }
+
+    private void SelectIntegratedGraphics()
+    {
+        if (!BuilderService.UseIntegratedGraphics(_build)) return;
+        _activePreset = null;
+        _feedback = L("ConfiguratorPreview.IntegratedGraphicsSelected");
+        var missingComponents = Status.MissingComponents;
+        _activeCategory = missingComponents.Count == 0 ? null : missingComponents[0];
+        ResetProductView();
+    }
+
+    private void SelectDiscreteGraphics()
+    {
+        BuilderService.UseDiscreteGraphics(_build);
+        _activePreset = null;
+        _feedback = L("ConfiguratorPreview.DedicatedGraphicsSelected");
+        _activeCategory = BuilderCategory.Gpu;
+        ResetProductView();
+    }
+
+    private void RemoveAccessory(BuilderCategory category)
+    {
+        BuilderService.RemoveOptionalProduct(_build, category);
+        _feedback = L("ConfiguratorPreview.SelectionRemoved");
+    }
+
+    private void ApplyPreset(BuildPreset preset)
+    {
+        var orderType = _build.OrderType;
+        var packageId = _build.ServicePackage?.Id;
+        var addons = _build.ServiceAddons.Select(x => x.Id).ToArray();
+        _build = BuilderService.ApplyPreset(preset.Id);
+        if (orderType is { } selectedType)
+            BuilderService.SetOrderType(_build, selectedType);
+        if (packageId is not null)
+            BuilderService.SelectServicePackage(_build, packageId);
+        foreach (var addon in addons)
+            BuilderService.ToggleServiceAddon(_build, addon);
+        _activePreset = preset.Id;
+        _activeCategory = preset.Id == "scratch" ? BuilderCategory.Cpu : null;
+        ResetProductView();
+        _activePhase = 2;
+        _feedback =
+            preset.Id == "scratch"
+                ? L("ConfiguratorPreview.BlankConfigurationStarted")
+                : $"{PresetName(preset)} {L("ConfiguratorPreview.Loaded")}";
+    }
+
+    private void ChooseComponentsOnly()
+    {
+        BuilderService.SetOrderType(_build, BuildOrderType.ComponentsOnly);
+        _elementToScroll = "parts-only-summary";
+    }
+
+    private void ChoosePcWerkBuild()
+    {
+        BuilderService.SetOrderType(_build, BuildOrderType.PcWerkBuild);
+        _activePhase = 3;
+        _elementToScroll = "service-packages";
+    }
+
+    private void SelectPackage(ServicePackage package)
+    {
+        BuilderService.SelectServicePackage(_build, package.Id);
+        _elementToScroll = "addons-title";
+    }
+
+    private void ToggleAddon(Service service)
+    {
+        BuilderService.ToggleServiceAddon(_build, service.Id);
+    }
+
+    private void ClearOperatingSystem()
+    {
+        BuilderService.ClearServiceSelectionGroup(_build, PcBuilderService.OperatingSystemSelectionGroup);
+    }
+
+    private void TogglePackageDetails(string packageId)
+    {
+        if (!_expandedPackages.Add(packageId))
+            _expandedPackages.Remove(packageId);
+    }
+
+    private IEnumerable<Service> PackageServices(ServicePackage package) =>
+        package.IncludedServices.Select(id => BuilderService.Services.First(x => x.Id == id));
+
+    private string PackageName(ServicePackage package) => L(package.NameTranslationKey);
+
+    private string PackageDescription(ServicePackage package) => L(package.DescriptionTranslationKey);
+
+    private string PackageOutcome(ServicePackage package) => L(package.OutcomeTranslationKey);
+
+    private string PackageCta(ServicePackage package) =>
+        package.Id switch
+        {
+            "assembly" => L("ConfiguratorPreview.ChooseAssembly"),
+            "complete" => L("ConfiguratorPreview.ChooseComplete"),
+            _ => L("ConfiguratorPreview.ChooseCompletePlus"),
+        };
+
+    private string ServiceName(Service service) => L(service.NameTranslationKey);
+
+    private string ServiceDescription(Service service) => L(service.DescriptionTranslationKey);
+
+    private string? ServiceAvailability(Service service) =>
+        service.AvailabilityNoteTranslationKey is null ? null : L(service.AvailabilityNoteTranslationKey);
+
+    private string PresetName(BuildPreset preset) => L(preset.Name);
+
+    private string ServiceCategory(Service service) => L(service.Category);
+
+    private string ProductText(string value)
+    {
+        var translated = L(value);
+        if (!translated.Equals(value, StringComparison.Ordinal))
+        {
+            return translated;
+        }
+
+        if (value.EndsWith(" inch", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{value[..^5]} {L("ProductSpecifications.Inch")}";
+        }
+
+        if (value.EndsWith(" slots", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{value[..^6]} {L("ProductSpecifications.Slots")}";
+        }
+
+        return value;
+    }
+
+    private async Task SaveBuild()
+    {
+        await JS.InvokeVoidAsync("pcBuilder.save", BuilderService.Serialize(_build));
+        _feedback = L("ConfiguratorPreview.ConfigurationSavedLocally");
+    }
+
+    private async Task ShareBuild()
+    {
+        await JS.InvokeVoidAsync("pcBuilder.share", BuilderService.Serialize(_build));
+        _feedback = L("ConfiguratorPreview.LinkCopiedToClipboard");
+    }
+
+    private void AddToCart()
+    {
+        if (!CanReview)
+        {
+            return;
+        }
+
+        Cart.AddConfiguration(_build);
+        Navigation.NavigateTo("/cart");
+    }
+
+    private async Task ResetBuild()
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", L("ConfiguratorPreview.ResetThisConfiguration")))
+        {
+            return;
+        }
+
+        _build = new BuilderBuild();
+        _activePreset = "scratch";
+        _activeCategory = BuilderCategory.Cpu;
+        _elementToScroll = $"component-{BuilderCategory.Cpu}";
+        ResetProductView();
+        _activePhase = HasPresetChoice ? 1 : 2;
+        _feedback = L("ConfiguratorPreview.ConfigurationReset");
+    }
+
+    private void OpenReview()
+    {
+        if (CanReview)
+        {
+            _activePhase = 4;
+            _elementToScroll = "review-title";
+        }
+    }
+
+    private string CategoryName(BuilderCategory category) =>
+        category switch
+        {
+            BuilderCategory.Cpu => L("ConfiguratorPreview.Processor"),
+            BuilderCategory.Gpu => L("ConfiguratorPreview.GraphicsCard"),
+            BuilderCategory.Motherboard => L("ConfiguratorPreview.Motherboard"),
+            BuilderCategory.Ram => L("ConfiguratorPreview.Memory"),
+            BuilderCategory.Storage => L("ConfiguratorPreview.Storage"),
+            BuilderCategory.Cooling => L("ConfiguratorPreview.CpuCooling"),
+            BuilderCategory.Psu => L("ConfiguratorPreview.PowerSupply"),
+            BuilderCategory.Case => L("ConfiguratorPreview.Case"),
+            BuilderCategory.Monitor => L("ConfiguratorPreview.Monitor"),
+            BuilderCategory.Mouse => L("ConfiguratorPreview.Mouse"),
+            BuilderCategory.Keyboard => L("ConfiguratorPreview.Keyboard"),
+            _ => category.ToString(),
+        };
+
+    private string CategoryIcon(BuilderCategory category) =>
+        category switch
+        {
+            BuilderCategory.Cpu => "CPU",
+            BuilderCategory.Gpu => "GPU",
+            BuilderCategory.Motherboard => "MB",
+            BuilderCategory.Ram => "RAM",
+            BuilderCategory.Storage => "SSD",
+            BuilderCategory.Cooling => "CL",
+            BuilderCategory.Psu => "PSU",
+            BuilderCategory.Case => "CASE",
+            BuilderCategory.Monitor => "MON",
+            BuilderCategory.Mouse => "MSE",
+            BuilderCategory.Keyboard => "KEY",
+            _ => "PC",
+        };
+
+    private string CategoryHelper(BuilderCategory category) =>
+        category switch
+        {
+            BuilderCategory.Cpu => L("ConfiguratorPreview.AffectsGamingFpsAndProductivity"),
+            BuilderCategory.Gpu => L("ConfiguratorPreview.DeterminesGraphicsPerformanceAndResolution"),
+            BuilderCategory.Motherboard => L("ConfiguratorPreview.ConnectsEveryComponentInYourSystem"),
+            BuilderCategory.Ram => L("ConfiguratorPreview.MoreMemoryHelpsWithMultitasking"),
+            BuilderCategory.Storage => L("ConfiguratorPreview.FastSpaceForYourSystemGamesAndProjects"),
+            BuilderCategory.Cooling => L("ConfiguratorPreview.KeepsTheProcessorCoolQuietAndFast"),
+            BuilderCategory.Psu => L("ConfiguratorPreview.RecommendedToMatchYourGraphicsCard"),
+            BuilderCategory.Case => L("ConfiguratorPreview.DeterminesSpaceAirflowAndAppearance"),
+            BuilderCategory.Monitor => L("ConfiguratorPreview.ChooseAScreenForYourResolutionAndRefreshRate"),
+            BuilderCategory.Mouse => L("ConfiguratorPreview.ChooseAComfortableMouseForWorkAndGaming"),
+            BuilderCategory.Keyboard => L("ConfiguratorPreview.ChooseTheLayoutSizeAndSwitchTypeYouPrefer"),
+            _ => string.Empty,
+        };
+
+    private static bool IsAccessory(BuilderCategory category) =>
+        category is BuilderCategory.Monitor or BuilderCategory.Mouse or BuilderCategory.Keyboard;
+
+    private string ChooseLabel(BuilderCategory category) =>
+        $"{L("ConfiguratorPreview.Choose")}";
+
+    private string NaturalList(string[] items) =>
+        items.Length switch
+        {
+            0 => string.Empty,
+            1 => items[0],
+            _ => string.Join(", ", items[..^1]) + $" {L("ConfiguratorPreview.And")} {items[^1]}",
+        };
+}

@@ -1,0 +1,34 @@
+@page "/"
+@inject IJSRuntime JS
+
+<PageTitle>@L("Seo.HomeTitle")</PageTitle>
+<HeadContent>
+    <meta name="description" content="@(L("Seo.HomeDescription"))" />
+    <meta property="og:title" content="@(L("Seo.HomeTitle"))" />
+    <meta property="og:description" content="@(L("Seo.HomeDescription"))" />
+    <meta name="twitter:title" content="@(L("Seo.HomeTitle"))" />
+    <meta name="twitter:description" content="@(L("Seo.TwitterDescription"))" />
+    <script type="application/ld+json">@((MarkupString)OrganizationSchema)</script>
+</HeadContent>
+
+<div class="page-shell theme-purple" lang="@_language.ToLowerInvariant()">
+    <SiteHeader Language="@_language"
+                LanguageChanged="SetLanguage"
+                OnConfiguratorRequested="OpenConfigurator" />
+    <main id="top">
+        <HeroSection Language="@_language" OnConfiguratorRequested="OpenConfigurator" />
+        <PcShowcase Language="@_language" OnSelected="OpenConfiguratorWithPreset" />
+        <WhyPcWerk Language="@_language" />
+        <HowItWorks Language="@_language" />
+        <TestingSection Language="@_language" />
+        <SwissTrust Language="@_language" />
+        <LocalWorkshop Language="@_language" OnConfiguratorRequested="OpenConfigurator" />
+        <CustomerReviews Language="@_language" />
+    </main>
+    <SiteFooter Language="@_language" OnConfiguratorRequested="OpenConfigurator" />
+</div>
+
+<ConfiguratorModal Language="@_language"
+                   CatalogPresetId="@CatalogPresetId"
+                   IsOpen="@_isConfiguratorOpen"
+                   Closed="CloseConfigurator" />

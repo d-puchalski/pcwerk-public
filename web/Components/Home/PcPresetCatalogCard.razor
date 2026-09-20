@@ -1,0 +1,146 @@
+<article class="preset-catalog-card @SeriesClass" id="@Preset.Slug">
+    <div class="preset-image">
+        <div class="preset-tags">
+            <span class="preset-badge">@Badge</span>
+            <span class="platform-badge">@Platform</span>
+        </div>
+        <span class="preset-number" aria-hidden="true">@PresetNumber</span>
+        <img src="@Preset.ImageUrl" alt="@Preset.Name" loading="lazy" />
+
+        @if (CaseComponent is { } caseComponent)
+        {
+            <div class="preset-image-caption">
+                <small>@CategoryLabel("CASE")</small>
+                <strong>@CompactComponentName(caseComponent)</strong>
+            </div>
+        }
+    </div>
+
+    <div class="preset-copy">
+        <div class="preset-meta">
+            <span>@L("PcCard.PcWerkPreset")</span>
+            <span>@Preset.Components.Sum(x => x.Quantity) @L("PcCard.Components")</span>
+        </div>
+        <h2>@Preset.Name</h2>
+        <p>@Description</p>
+
+        <dl class="preset-specs">
+            @foreach (var specification in Preset.Specifications)
+            {
+                <div>
+                    <dt>@SpecificationLabel(specification.Label)</dt>
+                    <dd title="@specification.Value">@specification.Value</dd>
+                </div>
+            }
+        </dl>
+
+        <details class="component-details">
+            <summary>@L("PcCatalog.ShowAllComponents")</summary>
+            <ul class="list-unstyled">
+                @foreach (var component in Preset.Components)
+                {
+                    <li>
+                        <div>
+                            <small>@CategoryLabel(component.CategoryCode)</small>
+                            @ComponentName(component)
+                        </div>
+                    </li>
+                }
+            </ul>
+        </details>
+
+        <footer class="preset-footer">
+            <div class="preset-price">
+                <small>@L("PcCard.HardwareTotal")</small>
+                <strong>@Money(Preset.Price)</strong>
+            </div>
+            <button class="btn primary-button" type="button" @onclick="SelectPreset">
+                @L("PcCard.Customize") <span aria-hidden="true">→</span>
+            </button>
+        </footer>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public CatalogPcPreset Preset { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string Language { get; set; } = "DE";
+
+    [Parameter]
+    public EventCallback<CatalogPcPreset> OnSelected { get; set; }
+
+    private string Description => Language switch
+    {
+        "EN" => Preset.DescriptionEn,
+        "IT" => Preset.DescriptionIt,
+        _ => Preset.DescriptionDe,
+    };
+
+    private string Badge => Language switch
+    {
+        "EN" => Preset.BadgeEn ?? L("PcCard.Preset"),
+        "IT" => Preset.BadgeIt ?? L("PcCard.Preset"),
+        _ => Preset.BadgeDe ?? L("PcCard.Preset"),
+    };
+
+    private string Platform => Preset.Slug.Contains("-amd-", StringComparison.OrdinalIgnoreCase)
+        ? "AMD"
+        : Preset.Slug.Contains("-intel-", StringComparison.OrdinalIgnoreCase)
+            ? "INTEL"
+            : "PC";
+
+    private string SeriesClass => Preset.Slug.StartsWith("creator-", StringComparison.OrdinalIgnoreCase)
+        ? "creator-series"
+        : "gaming-series";
+
+    private string PresetNumber
+    {
+        get
+        {
+            var suffix = Preset.Slug.Split('-').LastOrDefault();
+            return int.TryParse(suffix, out var number) ? number.ToString("00") : "PC";
+        }
+    }
+
+    private CatalogPresetComponent? CaseComponent =>
+        Preset.Components.FirstOrDefault(x => x.CategoryCode.Equals("CASE", StringComparison.OrdinalIgnoreCase));
+
+    private string L(string key) => Translations.Translate(Language, key);
+
+    private string SpecificationLabel(string label) => label == "Storage"
+        ? L("ConfiguratorPreview.Storage")
+        : label;
+
+    private string CategoryLabel(string code) => code switch
+    {
+        "CPU" => L("ConfiguratorPreview.Processor"),
+        "GPU" => L("ConfiguratorPreview.GraphicsCard"),
+        "MOTHERBOARD" => L("ConfiguratorPreview.Motherboard"),
+        "RAM" => L("ConfiguratorPreview.Memory"),
+        "STORAGE" => L("ConfiguratorPreview.Storage"),
+        "COOLING" => L("ConfiguratorPreview.CpuCooling"),
+        "PSU" => L("ConfiguratorPreview.PowerSupply"),
+        "CASE" => L("ConfiguratorPreview.Case"),
+        "MONITOR" => L("ConfiguratorPreview.Monitor"),
+        "MOUSE" => L("ConfiguratorPreview.Mouse"),
+        "KEYBOARD" => L("ConfiguratorPreview.Keyboard"),
+        _ => code
+    };
+
+    private Task SelectPreset() => OnSelected.InvokeAsync(Preset);
+
+    private static string ComponentName(CatalogPresetComponent component) =>
+        component.Quantity > 1 ? $"{component.Quantity}× {component.ProductName}" : component.ProductName;
+
+    private static string CompactComponentName(CatalogPresetComponent component)
+    {
+        var productName = component.ProductName;
+        var partNumberStart = productName.LastIndexOf(" (", StringComparison.Ordinal);
+        return partNumberStart > 0 ? productName[..partNumberStart] : productName;
+    }
+
+    private static string Money(decimal value) =>
+        $"CHF {value.ToString("#,0.00", System.Globalization.CultureInfo.InvariantCulture).Replace(",", "'")}";
+}
